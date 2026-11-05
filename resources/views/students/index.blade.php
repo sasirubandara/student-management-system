@@ -23,7 +23,11 @@
                 + Register New Student
             </a>
         </header>
-
+        @if (session('success'))
+    <div class="student-edit-form__success">
+        {{ session('success') }}
+    </div>
+        @endif
         <!-- Search form -->
         <section class="students-search-section">
 
