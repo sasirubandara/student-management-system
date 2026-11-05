@@ -25,29 +25,95 @@
             </a>
         </header>
 
+        <!-- Search form -->
+        <section class="students-search-section">
+
+            <form action="{{ route('students.index') }}"
+                  method="GET"
+                  class="students-search">
+
+                <div class="students-search__input-wrapper">
+                    <label for="student-search" class="sr-only">
+                        Search students
+                    </label>
+
+                    <input
+                        type="search"
+                        id="student-search"
+                        name="search"
+                        value="{{ $search }}"
+                        placeholder="Search by student number, name or email..."
+                        maxlength="255"
+                    >
+                </div>
+
+                <button type="submit"
+                        class="students-page__button">
+                    Search
+                </button>
+
+                @if ($search !== '')
+                    <a href="{{ route('students.index') }}"
+                       class="students-search__clear">
+                        Clear Search
+                    </a>
+                @endif
+
+            </form>
+
+        </section>
+
         <!-- Student count -->
         <section class="students-page__summary">
             <p>
-                Total registered students:
+                @if ($search !== '')
+                    Matching students:
+                @else
+                    Total registered students:
+                @endif
+
                 <strong>{{ $students->total() }}</strong>
             </p>
+
+            @if ($search !== '')
+                <p class="students-search__description">
+                    Search results for:
+                    <strong>{{ $search }}</strong>
+                </p>
+            @endif
         </section>
 
         <!-- Student table or empty state -->
         @if ($students->isEmpty())
 
             <section class="students-page__empty">
-                <h2>No Students Found</h2>
 
-                <p>
-                    There are currently no registered students.
-                    Register a student to get started.
-                </p>
+                @if ($search !== '')
+                    <h2>No Matching Students</h2>
 
-                <a href="{{ route('students.create') }}"
-                   class="students-page__button">
-                    Register First Student
-                </a>
+                    <p>
+                        No students matched your search.
+                        Try another student number, name or email.
+                    </p>
+
+                    <a href="{{ route('students.index') }}"
+                       class="students-page__button">
+                        View All Students
+                    </a>
+                @else
+                    <h2>No Students Found</h2>
+
+                    <p>
+                        There are currently no registered students.
+                        Register a student to get started.
+                    </p>
+
+                    <a href="{{ route('students.create') }}"
+                       class="students-page__button">
+                        Register First Student
+                    </a>
+                @endif
+
             </section>
 
         @else

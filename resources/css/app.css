@@ -255,3 +255,82 @@ body {
         margin-top: 30px;
     }
 }
+
+/* ========================================
+   STUDENT SEARCH
+======================================== */
+
+.students-search-section {
+    margin-bottom: 20px;
+}
+
+.students-search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.students-search__input-wrapper {
+    flex: 1;
+    min-width: 220px;
+}
+
+.students-search__input-wrapper input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.students-search__input-wrapper input:focus {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+    border-color: #2563eb;
+}
+
+.students-search__clear {
+    color: #dc2626;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.students-search__clear:hover {
+    text-decoration: underline;
+}
+
+.students-search__description {
+    margin-top: 8px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Responsive search layout */
+
+@media (max-width: 600px) {
+    .students-search {
+        align-items: stretch;
+    }
+
+    .students-search__input-wrapper {
+        flex-basis: 100%;
+    }
+
+    .students-search__clear {
+        padding: 10px 0;
+    }
+}
