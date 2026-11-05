@@ -433,3 +433,130 @@ body {
         gap: 20px;
     }
 }
+
+/* ========================================
+   STUDENT EDIT FORM
+======================================== */
+
+.student-edit-form {
+    padding: 28px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.student-edit-form__section {
+    padding-bottom: 25px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.student-edit-form__section h2 {
+    margin-bottom: 20px;
+    font-size: 19px;
+    color: #374151;
+}
+
+.student-edit-form__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.student-edit-form__field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.student-edit-form__field label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.student-edit-form__field input,
+.student-edit-form__field select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #ffffff;
+}
+
+.student-edit-form__field input:focus,
+.student-edit-form__field select:focus {
+    outline: 2px solid #2563eb;
+    outline-offset: 1px;
+    border-color: #2563eb;
+}
+
+.student-edit-form__error {
+    color: #dc2626;
+    font-size: 13px;
+}
+
+.student-edit-form__errors {
+    padding: 15px;
+    margin-bottom: 25px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #991b1b;
+}
+
+.student-edit-form__errors ul {
+    padding-left: 20px;
+    margin-top: 10px;
+}
+
+.student-edit-form__success {
+    padding: 15px 18px;
+    margin-bottom: 22px;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    color: #166534;
+}
+
+.student-edit-form__actions,
+.student-profile__actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.students-page__button--secondary {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.students-page__button--secondary:hover {
+    background: #d1d5db;
+}
+
+@media (max-width: 600px) {
+    .student-edit-form {
+        padding: 18px;
+    }
+
+    .student-edit-form__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .student-edit-form__actions,
+    .student-profile__actions {
+        align-items: stretch;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .student-edit-form__actions a,
+    .student-edit-form__actions button,
+    .student-profile__actions a {
+        text-align: center;
+    }
+}
