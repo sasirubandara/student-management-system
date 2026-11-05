@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -10,15 +11,28 @@ use Illuminate\View\View;
 class StudentController extends Controller
 {
     /**
-     * Display the list of registered students.
+     * Display the student list with optional search.
      */
-    public function index(): View
+    public function index(Request $request): View
     {
-        $students = Student::query()
-            ->latest()
-            ->paginate(10);
+        $search = trim((string) $request->query('search', ''));
 
-        return view('students.index', compact('students'));
+        $students = Student::query()
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $term = "%{$search}%";
+
+                $query->where(function (Builder $query) use ($term): void {
+                    $query->where('student_number', 'like', $term)
+                        ->orWhere('first_name', 'like', $term)
+                        ->orWhere('last_name', 'like', $term)
+                        ->orWhere('email', 'like', $term);
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('students.index', compact('students', 'search'));
     }
 
     /**
