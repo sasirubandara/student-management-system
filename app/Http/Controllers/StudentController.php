@@ -36,6 +36,14 @@ class StudentController extends Controller
     }
 
     /**
+     * Display an individual student's profile.
+     */
+    public function show(Student $student): View
+    {
+        return view('students.show', compact('student'));
+    }
+
+    /**
      * Display the student registration form.
      */
     public function create(): View
