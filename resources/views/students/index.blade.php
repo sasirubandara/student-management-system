@@ -12,7 +12,6 @@
 
     <main class="students-page">
 
-        <!-- Page header -->
         <header class="students-page__header">
             <div>
                 <h1>Student Management</h1>
@@ -47,8 +46,7 @@
                     >
                 </div>
 
-                <button type="submit"
-                        class="students-page__button">
+                <button type="submit" class="students-page__button">
                     Search
                 </button>
 
@@ -66,12 +64,7 @@
         <!-- Student count -->
         <section class="students-page__summary">
             <p>
-                @if ($search !== '')
-                    Matching students:
-                @else
-                    Total registered students:
-                @endif
-
+                {{ $search !== '' ? 'Matching students:' : 'Total registered students:' }}
                 <strong>{{ $students->total() }}</strong>
             </p>
 
@@ -83,14 +76,13 @@
             @endif
         </section>
 
-        <!-- Student table or empty state -->
+        <!-- Student list -->
         @if ($students->isEmpty())
 
             <section class="students-page__empty">
 
                 @if ($search !== '')
                     <h2>No Matching Students</h2>
-
                     <p>
                         No students matched your search.
                         Try another student number, name or email.
@@ -102,7 +94,6 @@
                     </a>
                 @else
                     <h2>No Students Found</h2>
-
                     <p>
                         There are currently no registered students.
                         Register a student to get started.
@@ -130,6 +121,7 @@
                             <th>Phone</th>
                             <th>Enrollment Date</th>
                             <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
 
@@ -168,6 +160,13 @@
                                             : 'students-status--other' }}">
                                         {{ ucfirst($student->status) }}
                                     </span>
+                                </td>
+
+                                <td>
+                                    <a href="{{ route('students.show', $student) }}"
+                                       class="students-table__view">
+                                        View
+                                    </a>
                                 </td>
                             </tr>
 
