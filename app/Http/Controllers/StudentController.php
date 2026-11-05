@@ -10,6 +10,18 @@ use Illuminate\View\View;
 class StudentController extends Controller
 {
     /**
+     * Display the list of registered students.
+     */
+    public function index(): View
+    {
+        $students = Student::query()
+            ->latest()
+            ->paginate(10);
+
+        return view('students.index', compact('students'));
+    }
+
+    /**
      * Display the student registration form.
      */
     public function create(): View
