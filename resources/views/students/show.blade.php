@@ -14,17 +14,31 @@
 
         <!-- Page header -->
         <header class="students-page__header">
-            <div>
-                <h1>Student Profile</h1>
-                <p>View the complete registered student information.</p>
-            </div>
+    <div>
+        <h1>Student Profile</h1>
+        <p>View the complete registered student information.</p>
+    </div>
 
-            <a href="{{ route('students.index') }}"
-               class="students-page__button">
-                Back to Students
-            </a>
+    <div class="student-profile__actions">
+
+        <a href="{{ route('students.edit', $student) }}"
+           class="students-page__button">
+            Edit Student
+        </a>
+
+        <a href="{{ route('students.index') }}"
+           class="students-page__button students-page__button--secondary">
+            Back to Students
+        </a>
+
+    </div>
         </header>
 
+        @if (session('success'))
+    <div class="student-edit-form__success">
+        {{ session('success') }}
+    </div>
+        @endif
         <!-- Profile card -->
         <section class="student-profile">
 

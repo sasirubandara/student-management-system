@@ -6,6 +6,7 @@ use App\Models\Student;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StudentController extends Controller
@@ -41,6 +42,76 @@ class StudentController extends Controller
     public function show(Student $student): View
     {
         return view('students.show', compact('student'));
+    }
+
+    /**
+     * Display the student editing form.
+     */
+    public function edit(Student $student): View
+    {
+        return view('students.edit', compact('student'));
+    }
+
+    /**
+     * Update an existing student's information.
+     */
+    public function update(Request $request, Student $student): RedirectResponse
+    {
+        $validated = $request->validate([
+            'student_number' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('students', 'student_number')
+                    ->ignore($student->id),
+            ],
+
+            'first_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'last_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+            ],
+
+            'phone' => [
+                'nullable',
+                'string',
+                'max:30',
+            ],
+
+            'date_of_birth' => [
+                'nullable',
+                'date',
+                'before:today',
+            ],
+
+            'enrollment_date' => [
+                'required',
+                'date',
+            ],
+
+            'status' => [
+                'required',
+                'string',
+                'in:active,inactive',
+            ],
+        ]);
+
+        $student->update($validated);
+
+        return to_route('students.show', $student)
+            ->with('success', 'Student information updated successfully.');
     }
 
     /**
