@@ -66,52 +66,30 @@ class StudentController extends Controller
                     ->ignore($student->id),
             ],
 
-            'first_name' => [
-                'required',
-                'string',
-                'max:100',
-            ],
-
-            'last_name' => [
-                'required',
-                'string',
-                'max:100',
-            ],
-
-            'email' => [
-                'nullable',
-                'email',
-                'max:255',
-            ],
-
-            'phone' => [
-                'nullable',
-                'string',
-                'max:30',
-            ],
-
-            'date_of_birth' => [
-                'nullable',
-                'date',
-                'before:today',
-            ],
-
-            'enrollment_date' => [
-                'required',
-                'date',
-            ],
-
-            'status' => [
-                'required',
-                'string',
-                'in:active,inactive',
-            ],
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'enrollment_date' => ['required', 'date'],
+            'status' => ['required', 'string', 'in:active,inactive'],
         ]);
 
         $student->update($validated);
 
         return to_route('students.show', $student)
             ->with('success', 'Student information updated successfully.');
+    }
+
+    /**
+     * Archive a student using soft deletion.
+     */
+    public function destroy(Student $student): RedirectResponse
+    {
+        $student->delete();
+
+        return to_route('students.index')
+            ->with('success', 'Student archived successfully.');
     }
 
     /**
@@ -135,40 +113,12 @@ class StudentController extends Controller
                 'unique:students,student_number',
             ],
 
-            'first_name' => [
-                'required',
-                'string',
-                'max:100',
-            ],
-
-            'last_name' => [
-                'required',
-                'string',
-                'max:100',
-            ],
-
-            'email' => [
-                'nullable',
-                'email',
-                'max:255',
-            ],
-
-            'phone' => [
-                'nullable',
-                'string',
-                'max:30',
-            ],
-
-            'date_of_birth' => [
-                'nullable',
-                'date',
-                'before:today',
-            ],
-
-            'enrollment_date' => [
-                'required',
-                'date',
-            ],
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'enrollment_date' => ['required', 'date'],
         ]);
 
         Student::create($validated);

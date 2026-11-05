@@ -560,3 +560,29 @@ body {
         text-align: center;
     }
 }
+
+/* ========================================
+   STUDENT ARCHIVE ACTION
+======================================== */
+
+.student-archive-button {
+    background: #dc2626;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.student-archive-button:hover {
+    background: #b91c1c;
+}
+
+.student-profile__actions form {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .student-profile__actions form,
+    .student-profile__actions form button {
+        width: 100%;
+    }
+}
