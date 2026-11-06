@@ -1,8 +1,15 @@
 <?php
 
 use App\Models\Student;
+use App\Models\User;
 
 it('archives a student successfully', function () {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $this->actingAs($admin);
+
     $student = Student::create([
         'student_number' => 'STU-ARCHIVE-001',
         'first_name' => 'Alex',
@@ -39,24 +46,18 @@ it('keeps archived students out of the listing and search', function () {
 
     $student->delete();
 
-    // Check the normal listing.
     $this->get(route('students.index'))
         ->assertOk()
-        ->assertViewHas('students', function ($students) use ($student) {
-            return ! $students->getCollection()
-                ->contains('id', $student->id);
+        ->assertDontSee('STU-ARCHIVE-002')
+        ->assertViewHas('students', function ($students) {
+            return $students->total() === 0;
         });
 
-    // Check search results.
     $this->get(route('students.index', [
         'search' => 'STU-ARCHIVE-002',
     ]))
         ->assertOk()
-        ->assertSee('No Matching Students')
-        ->assertViewHas('students', function ($students) use ($student) {
-            return ! $students->getCollection()
-                ->contains('id', $student->id);
-        });
+        ->assertSee('No Matching Students');
 });
 
 it('returns a 404 when opening an archived student profile', function () {
@@ -70,17 +71,13 @@ it('returns a 404 when opening an archived student profile', function () {
 
     $student->delete();
 
-    $response = $this->get(
-        route('students.show', ['student' => $student->id])
-    );
-
-    $response->assertNotFound();
+    $this->get(route('students.show', [
+        'student' => $student->id,
+    ]))->assertNotFound();
 });
 
 it('does not archive a student that does not exist', function () {
-    $response = $this->delete(
-        route('students.destroy', ['student' => 999999])
-    );
-
-    $response->assertNotFound();
+    $this->delete(route('students.destroy', [
+        'student' => 999999,
+    ]))->assertNotFound();
 });

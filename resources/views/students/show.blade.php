@@ -19,31 +19,39 @@
         <p>View the complete registered student information.</p>
     </div>
 
+
+
     <div class="student-profile__actions">
 
-    <a href="{{ route('students.edit', $student) }}"
-       class="students-page__button">
-        Edit Student
-    </a>
+        @can('update', $student)
+            <a href="{{ route('students.edit', $student) }}"
+                class="students-page__button">
+                Edit Student
+            </a>
+        @endcan
 
-    <a href="{{ route('students.index') }}"
-       class="students-page__button students-page__button--secondary">
-        Back to Students
-    </a>
+        <a href="{{ route('students.index') }}"
+            class="students-page__button students-page__button--secondary">
+            Back to Students
+        </a>
 
-    <form
-        action="{{ route('students.destroy', $student) }}"
-        method="POST"
-        onsubmit="return confirm('Are you sure you want to archive this student?');"
-    >
-        @csrf
-        @method('DELETE')
+        @can('delete', $student)
 
-        <button type="submit"
-                class="students-page__button student-archive-button">
-            Archive Student
-        </button>
-    </form>
+            <form
+                action="{{ route('students.destroy', $student) }}"
+                method="POST"
+                onsubmit="return confirm('Are you sure you want to archive this student?');"
+            >
+                @csrf
+                @method('DELETE')
+
+                <button type="submit"
+                    class="students-page__button student-archive-button">
+                    Archive Student
+                </button>
+            </form>
+
+        @endcan
 
     </div>
 

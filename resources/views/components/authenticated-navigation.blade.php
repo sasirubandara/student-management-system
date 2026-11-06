@@ -1,30 +1,33 @@
 <nav class="app-navigation" aria-label="Main navigation">
 
-    <!-- Application brand -->
     <a href="{{ route('students.index') }}"
        class="app-navigation__brand">
         Student Management System
     </a>
 
-    <!-- Navigation links -->
     <div class="app-navigation__links">
 
         <a href="{{ route('students.index') }}">
             Students
         </a>
 
-        <a href="{{ route('students.archived') }}">
-            Archived Students
-        </a>
+        @can('viewArchived', \App\Models\Student::class)
+            <a href="{{ route('students.archived') }}">
+                Archived Students
+            </a>
+        @endcan
 
     </div>
 
-    <!-- Account information and logout -->
     <div class="app-navigation__account">
 
         <span class="app-navigation__username">
             Welcome,
             <strong>{{ auth()->user()->name }}</strong>
+
+            <span class="app-navigation__role">
+                ({{ ucfirst(auth()->user()->role) }})
+            </span>
         </span>
 
         <form action="{{ route('logout') }}" method="POST">

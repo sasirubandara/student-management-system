@@ -9,7 +9,9 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
+
     <x-authenticated-navigation />
+
     <main class="students-page">
 
         <!-- Page header -->
@@ -104,18 +106,24 @@
                                 </td>
 
                                 <td>
-                                    <form
-                                        action="{{ route('students.restore', $student) }}"
-                                        method="POST"
-                                        onsubmit="return confirm('Are you sure you want to restore this student?');"
-                                    >
-                                        @csrf
 
-                                        <button type="submit"
-                                                class="student-restore-button">
-                                            Restore
-                                        </button>
-                                    </form>
+                                    @can('restore', $student)
+
+                                        <form
+                                            action="{{ route('students.restore', $student) }}"
+                                            method="POST"
+                                            onsubmit="return confirm('Are you sure you want to restore this student?');"
+                                        >
+                                            @csrf
+
+                                            <button type="submit"
+                                                    class="student-restore-button">
+                                                Restore
+                                            </button>
+                                        </form>
+
+                                    @endcan
+
                                 </td>
                             </tr>
 

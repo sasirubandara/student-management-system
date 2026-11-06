@@ -18,17 +18,14 @@
     </div>
 
     <div class="students-page__header-actions">
+    @can('viewArchived', \App\Models\Student::class)
 
-        <a href="{{ route('students.archived') }}"
-           class="students-page__button students-page__button--secondary">
-            Archived Students
-        </a>
+    <a href="{{ route('students.archived') }}"
+       class="students-page__button students-page__button--secondary">
+        Archived Students
+    </a>
 
-        <a href="{{ route('students.create') }}"
-           class="students-page__button">
-            + Register New Student
-        </a>
-
+    @endcan
     </div>
         </header>
 

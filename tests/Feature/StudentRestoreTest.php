@@ -1,8 +1,15 @@
 <?php
 
 use App\Models\Student;
+use App\Models\User;
 
 it('displays archived students without displaying active students', function () {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $this->actingAs($admin);
+
     $archivedStudent = Student::create([
         'student_number' => 'STU-RESTORE-001',
         'first_name' => 'Alex',
@@ -21,9 +28,8 @@ it('displays archived students without displaying active students', function () 
         'status' => 'active',
     ]);
 
-    $response = $this->get(route('students.archived'));
-
-    $response->assertOk()
+    $this->get(route('students.archived'))
+        ->assertOk()
         ->assertSee('Archived Students')
         ->assertSee('STU-RESTORE-001')
         ->assertDontSee('STU-RESTORE-002')
@@ -33,6 +39,12 @@ it('displays archived students without displaying active students', function () 
 });
 
 it('restores an archived student successfully', function () {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $this->actingAs($admin);
+
     $student = Student::create([
         'student_number' => 'STU-RESTORE-003',
         'first_name' => 'Michael',
@@ -63,13 +75,18 @@ it('restores an archived student successfully', function () {
         'deleted_at' => null,
     ]);
 
-    // Confirm the restored student is visible in the normal listing.
     $this->get(route('students.index'))
         ->assertOk()
         ->assertSee('STU-RESTORE-003');
 });
 
 it('does not restore a student who is not archived', function () {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $this->actingAs($admin);
+
     $student = Student::create([
         'student_number' => 'STU-RESTORE-004',
         'first_name' => 'David',
@@ -78,11 +95,9 @@ it('does not restore a student who is not archived', function () {
         'status' => 'active',
     ]);
 
-    $response = $this->post(
+    $this->post(
         route('students.restore', $student)
-    );
-
-    $response->assertNotFound();
+    )->assertNotFound();
 
     $this->assertDatabaseHas('students', [
         'id' => $student->id,
@@ -91,9 +106,7 @@ it('does not restore a student who is not archived', function () {
 });
 
 it('returns a 404 when attempting to restore a nonexistent student', function () {
-    $response = $this->post(
+    $this->post(
         route('students.restore', 999999)
-    );
-
-    $response->assertNotFound();
+    )->assertNotFound();
 });

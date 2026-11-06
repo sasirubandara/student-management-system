@@ -6,6 +6,7 @@ use App\Models\Student;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -16,6 +17,8 @@ class StudentController extends Controller
      */
     public function index(Request $request): View
     {
+        Gate::authorize('viewAny', Student::class);
+
         $search = trim((string) $request->query('search', ''));
 
         $students = Student::query()
@@ -41,6 +44,8 @@ class StudentController extends Controller
      */
     public function archived(): View
     {
+        Gate::authorize('viewArchived', Student::class);
+
         $students = Student::onlyTrashed()
             ->latest('deleted_at')
             ->paginate(10);
@@ -53,6 +58,8 @@ class StudentController extends Controller
      */
     public function restore(Student $student): RedirectResponse
     {
+        Gate::authorize('restore', $student);
+
         abort_unless($student->trashed(), 404);
 
         $student->restore();
@@ -66,6 +73,8 @@ class StudentController extends Controller
      */
     public function show(Student $student): View
     {
+        Gate::authorize('view', $student);
+
         return view('students.show', compact('student'));
     }
 
@@ -74,6 +83,8 @@ class StudentController extends Controller
      */
     public function edit(Student $student): View
     {
+        Gate::authorize('update', $student);
+
         return view('students.edit', compact('student'));
     }
 
@@ -82,6 +93,8 @@ class StudentController extends Controller
      */
     public function update(Request $request, Student $student): RedirectResponse
     {
+        Gate::authorize('update', $student);
+
         $validated = $request->validate([
             'student_number' => [
                 'required',
@@ -111,6 +124,8 @@ class StudentController extends Controller
      */
     public function destroy(Student $student): RedirectResponse
     {
+        Gate::authorize('delete', $student);
+
         $student->delete();
 
         return to_route('students.index')
@@ -122,6 +137,8 @@ class StudentController extends Controller
      */
     public function create(): View
     {
+        Gate::authorize('create', Student::class);
+
         return view('students.create');
     }
 
@@ -130,6 +147,8 @@ class StudentController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        Gate::authorize('create', Student::class);
+
         $validated = $request->validate([
             'student_number' => [
                 'required',
