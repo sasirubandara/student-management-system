@@ -87,6 +87,7 @@ class CreateAdminUser extends Command
             'name' => $name,
             'email' => $email,
             'password' => $password,
+            'role' => User::ROLE_ADMIN,
         ]);
 
         $this->info('Administrator account created successfully!');

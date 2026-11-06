@@ -79,7 +79,8 @@ it('displays the authenticated user navigation and logout form', function () {
     $response->assertOk()
         ->assertSee('Student Management System')
         ->assertSee($user->name)
-        ->assertSee('Archived Students')
+        ->assertSee('Staff')
+        ->assertDontSee(route('students.archived'), false)
         ->assertSee('Logout')
         ->assertSee(route('logout'), false);
 });
