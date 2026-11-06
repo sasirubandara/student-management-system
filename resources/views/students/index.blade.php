@@ -11,18 +11,27 @@
 <body>
 
     <main class="students-page">
-
         <header class="students-page__header">
-            <div>
-                <h1>Student Management</h1>
-                <p>View and manage registered students.</p>
-            </div>
+    <div>
+        <h1>Student Management</h1>
+        <p>View and manage registered students.</p>
+    </div>
 
-            <a href="{{ route('students.create') }}"
-               class="students-page__button">
-                + Register New Student
-            </a>
+    <div class="students-page__header-actions">
+
+        <a href="{{ route('students.archived') }}"
+           class="students-page__button students-page__button--secondary">
+            Archived Students
+        </a>
+
+        <a href="{{ route('students.create') }}"
+           class="students-page__button">
+            + Register New Student
+        </a>
+
+    </div>
         </header>
+
         @if (session('success'))
     <div class="student-edit-form__success">
         {{ session('success') }}

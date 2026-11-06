@@ -12,7 +12,7 @@ use Illuminate\View\View;
 class StudentController extends Controller
 {
     /**
-     * Display the student list with optional search.
+     * Display active students with optional search.
      */
     public function index(Request $request): View
     {
@@ -34,6 +34,31 @@ class StudentController extends Controller
             ->withQueryString();
 
         return view('students.index', compact('students', 'search'));
+    }
+
+    /**
+     * Display archived students.
+     */
+    public function archived(): View
+    {
+        $students = Student::onlyTrashed()
+            ->latest('deleted_at')
+            ->paginate(10);
+
+        return view('students.archived', compact('students'));
+    }
+
+    /**
+     * Restore an archived student.
+     */
+    public function restore(Student $student): RedirectResponse
+    {
+        abort_unless($student->trashed(), 404);
+
+        $student->restore();
+
+        return to_route('students.show', $student)
+            ->with('success', 'Student restored successfully.');
     }
 
     /**
