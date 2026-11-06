@@ -586,3 +586,42 @@ body {
         width: 100%;
     }
 }
+
+/* ========================================
+   ARCHIVED STUDENTS AND RESTORE ACTIONS
+======================================== */
+
+.students-page__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.student-restore-button {
+    display: inline-block;
+    padding: 8px 13px;
+    background: #16a34a;
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.student-restore-button:hover {
+    background: #15803d;
+}
+
+@media (max-width: 700px) {
+    .students-page__header-actions {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .students-page__header-actions a {
+        text-align: center;
+    }
+}
