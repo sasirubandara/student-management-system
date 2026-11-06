@@ -9,7 +9,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
-
+    <x-authenticated-navigation />
     <main class="students-page">
 
         <!-- Page header -->
