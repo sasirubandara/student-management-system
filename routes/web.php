@@ -3,8 +3,9 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AcademicClassController;
+use App\Http\Controllers\SubjectController;
+use Illuminate\Support\Facades\Route;
 
 // Public home page
 Route::get('/', function () {
@@ -110,5 +111,27 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Academic class profile
     Route::get('/academic-classes/{academicClass}', [AcademicClassController::class, 'show'])
         ->name('academic-classes.show');
+
+    // Subject management
+    Route::get('/subjects', [SubjectController::class, 'index'])
+        ->name('subjects.index');
+
+    Route::get('/subjects/create', [SubjectController::class, 'create'])
+        ->name('subjects.create');
+
+    Route::post('/subjects', [SubjectController::class, 'store'])
+        ->name('subjects.store');
+
+    Route::get('/subjects/{subject}/edit', [SubjectController::class, 'edit'])
+        ->name('subjects.edit');
+
+    Route::put('/subjects/{subject}', [SubjectController::class, 'update'])
+        ->name('subjects.update');
+
+    Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])
+        ->name('subjects.destroy');
+
+    Route::get('/subjects/{subject}', [SubjectController::class, 'show'])
+        ->name('subjects.show');
 
 });

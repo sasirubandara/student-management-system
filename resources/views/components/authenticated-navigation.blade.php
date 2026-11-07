@@ -29,6 +29,12 @@
             </a>
         @endcan
 
+        @can('viewAny', \App\Models\Subject::class)
+            <a href="{{ route('subjects.index') }}">
+                Subjects
+            </a>
+        @endcan
+
     </div>
 
     <div class="app-navigation__account">
