@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -23,11 +24,29 @@ Route::middleware('guest')->group(function () {
 
 // Logout route
 Route::post('/logout', [AuthController::class, 'destroy'])
-    ->middleware('auth')
+    ->middleware(['auth', 'active'])
     ->name('logout');
 
-// Protected student-management routes
-Route::middleware('auth')->group(function () {
+// Protected application routes
+Route::middleware(['auth', 'active'])->group(function () {
+
+    // User management
+    Route::get('/users', [UserController::class, 'index'])
+        ->name('users.index');
+
+    Route::get('/users/create', [UserController::class, 'create'])
+        ->name('users.create');
+
+    Route::post('/users', [UserController::class, 'store'])
+        ->name('users.store');
+
+    // Update user role
+    Route::patch('/users/{user}/role', [UserController::class, 'updateRole'])
+        ->name('users.role.update');
+
+    // Update user account status
+    Route::patch('/users/{user}/status', [UserController::class, 'updateStatus'])
+        ->name('users.status.update');
 
     // Student listing
     Route::get('/students', [StudentController::class, 'index'])
