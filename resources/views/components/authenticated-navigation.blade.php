@@ -23,6 +23,12 @@
             </a>
         @endcan
 
+        @can('viewAny', \App\Models\AcademicClass::class)
+            <a href="{{ route('academic-classes.index') }}">
+                Classes
+            </a>
+        @endcan
+
     </div>
 
     <div class="app-navigation__account">

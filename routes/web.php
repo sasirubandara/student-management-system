@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AcademicClassController;
 
 // Public home page
 Route::get('/', function () {
@@ -82,5 +83,32 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Student profile
     Route::get('/students/{student}', [StudentController::class, 'show'])
         ->name('students.show');
+
+    // Academic class management
+    Route::get('/academic-classes', [AcademicClassController::class, 'index'])
+        ->name('academic-classes.index');
+
+    // Create academic classes
+    Route::get('/academic-classes/create', [AcademicClassController::class, 'create'])
+        ->name('academic-classes.create');
+
+    Route::post('/academic-classes', [AcademicClassController::class, 'store'])
+        ->name('academic-classes.store');
+
+    // Edit academic classes
+    Route::get('/academic-classes/{academicClass}/edit', [AcademicClassController::class, 'edit'])
+        ->name('academic-classes.edit');
+
+    // Update academic classes
+    Route::put('/academic-classes/{academicClass}', [AcademicClassController::class, 'update'])
+        ->name('academic-classes.update');
+
+    // Delete academic classes
+    Route::delete('/academic-classes/{academicClass}', [AcademicClassController::class, 'destroy'])
+        ->name('academic-classes.destroy');
+
+    // Academic class profile
+    Route::get('/academic-classes/{academicClass}', [AcademicClassController::class, 'show'])
+        ->name('academic-classes.show');
 
 });
