@@ -28,7 +28,7 @@ class AuthController extends Controller
         ]);
 
         if (Auth::attempt(
-            $credentials,
+            array_merge($credentials, ['is_active' => true]),
             $request->boolean('remember')
         )) {
             // Regenerate the session to prevent session fixation.

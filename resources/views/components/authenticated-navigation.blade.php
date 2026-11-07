@@ -11,6 +11,12 @@
             Students
         </a>
 
+        @can('viewAny', \App\Models\User::class)
+            <a href="{{ route('users.index') }}">
+                Users
+            </a>
+        @endcan
+
         @can('viewArchived', \App\Models\Student::class)
             <a href="{{ route('students.archived') }}">
                 Archived Students
