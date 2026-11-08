@@ -5,6 +5,7 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AcademicClassController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\StudentEnrollmentController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -133,5 +134,24 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/subjects/{subject}', [SubjectController::class, 'show'])
         ->name('subjects.show');
+
+    // Student enrollment management
+    Route::get('/student-enrollments', [StudentEnrollmentController::class, 'index'])
+        ->name('student-enrollments.index');
+
+    Route::get('/student-enrollments/create', [StudentEnrollmentController::class, 'create'])
+        ->name('student-enrollments.create');
+
+    Route::post('/student-enrollments', [StudentEnrollmentController::class, 'store'])
+        ->name('student-enrollments.store');
+
+    Route::get('/student-enrollments/{studentEnrollment}/edit', [StudentEnrollmentController::class, 'edit'])
+        ->name('student-enrollments.edit');
+
+    Route::put('/student-enrollments/{studentEnrollment}', [StudentEnrollmentController::class, 'update'])
+        ->name('student-enrollments.update');
+
+    Route::get('/student-enrollments/{studentEnrollment}', [StudentEnrollmentController::class, 'show'])
+        ->name('student-enrollments.show');
 
 });
