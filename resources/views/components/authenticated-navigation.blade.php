@@ -11,6 +11,12 @@
             Students
         </a>
 
+        @can('viewAny', \App\Models\StudentEnrollment::class)
+            <a href="{{ route('student-enrollments.index') }}">
+                Enrollments
+            </a>
+        @endcan
+
         @can('viewAny', \App\Models\User::class)
             <a href="{{ route('users.index') }}">
                 Users

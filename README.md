@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student record management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student record management, academic class management, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -18,7 +18,25 @@ This project is developed incrementally as a learning and software development p
 - Paginate student records.
 - Archive students using soft deletes.
 - Restore archived student records.
-- Track student enrollment dates and statuses.
+- Maintain student registration dates and record statuses.
+
+### Student Enrollment Management
+
+- Connect students with academic classes through enrollment records.
+- View enrollment listings and individual enrollment details.
+- Search and paginate enrollment records.
+- Create new student enrollments.
+- Update enrollment dates, statuses, and administrative notes.
+- Support three enrollment statuses: **Active**, **Completed**, and **Withdrawn**.
+- Prevent duplicate enrollment records for the same student and academic class.
+- Reject enrollment creation when the selected student or academic class is inactive or archived.
+- Preserve enrollment records as historical records rather than permanently deleting them.
+
+**Enrollment history and duplicate prevention**
+
+Each student and academic class combination can have only one enrollment record. The unique database constraint prevents creating another record for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
+
+Enrollment records do not use soft deletes, and the database relationships protect them against accidental deletion of related student or academic class records.
 
 ### Authentication and Authorization
 
@@ -63,6 +81,10 @@ Administrators can:
 | Archive students | Yes | No |
 | View archived students | Yes | No |
 | Restore archived students | Yes | No |
+| View enrollment records | Yes | Yes |
+| Create student enrollments | Yes | No |
+| Update enrollment details and statuses | Yes | No |
+| Permanently delete enrollment records | No | No |
 | View user directory | Yes | No |
 | Create staff accounts | Yes | No |
 | Manage user roles | Yes | No |
@@ -223,6 +245,12 @@ Run a specific test file:
 php artisan test tests/Feature/UserManagementTest.php
 ```
 
+Run the student enrollment feature tests:
+
+```bash
+php artisan test tests/Feature/StudentEnrollmentManagementTest.php
+```
+
 Run tests matching a particular name:
 
 ```bash
@@ -295,10 +323,8 @@ The following features are potential future development milestones.
 
 ### Academic Management
 
-- Class management
 - Subject management
 - Teacher management
-- Student enrollment
 - Attendance management
 - Examination and grade management
 
@@ -361,9 +387,11 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Core student management, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, academic class management, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
 
-Development continues incrementally, with automated testing and GitHub Actions supporting the development workflow.
+Student Enrollment Management includes administrator-controlled enrollment creation and editing, staff access to enrollment records, enrollment status management, duplicate prevention, and historical record preservation.
+
+The complete automated test suite has passed. Development continues incrementally, with automated testing and GitHub Actions supporting the development workflow.
 
 ---
 
