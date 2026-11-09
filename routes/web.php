@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AcademicClassController;
+use App\Http\Controllers\AcademicClassSubjectController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\StudentEnrollmentController;
 use Illuminate\Support\Facades\Route;
@@ -112,6 +113,20 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Academic class profile
     Route::get('/academic-classes/{academicClass}', [AcademicClassController::class, 'show'])
         ->name('academic-classes.show');
+
+    // Academic class subject assignments
+
+    // Assign subjects to an academic class
+    Route::post(
+        '/academic-classes/{academicClass}/subjects',
+        [AcademicClassSubjectController::class, 'store']
+    )->name('academic-classes.subjects.store');
+
+    // Remove a subject from an academic class
+    Route::delete(
+        '/academic-classes/{academicClass}/subjects/{subject}',
+        [AcademicClassSubjectController::class, 'destroy']
+    )->name('academic-classes.subjects.destroy');
 
     // Subject management
     Route::get('/subjects', [SubjectController::class, 'index'])

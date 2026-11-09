@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student record management, academic class management, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student record management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -37,6 +37,43 @@ This project is developed incrementally as a learning and software development p
 Each student and academic class combination can have only one enrollment record. The unique database constraint prevents creating another record for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
 
 Enrollment records do not use soft deletes, and the database relationships protect them against accidental deletion of related student or academic class records.
+
+### Academic Class Management
+
+- Create and manage academic classes.
+- Store class names, codes, grade levels, and academic years.
+- View individual academic class details.
+- Search classes by name and class code.
+- Paginate academic class records.
+- Update academic class information.
+- Archive academic classes using soft deletes.
+
+### Subject Management
+
+- Create and manage academic subjects.
+- Store subject names, unique subject codes, and descriptions.
+- View individual subject details.
+- Search subjects by name and subject code.
+- Paginate subject records.
+- Update subject information.
+- Archive subjects using soft deletes.
+
+### Class-Subject Assignment
+
+- Assign multiple subjects to an academic class.
+- Assign the same subject to multiple academic classes.
+- Display assigned subjects on academic class details pages.
+- Allow administrators to assign and remove subjects.
+- Allow administrators and staff to view subject assignments.
+- Prevent duplicate subject assignments using validation and a database unique constraint.
+- Prevent inactive or archived subjects from being newly assigned.
+- Preserve subject assignment records when related subjects or classes are archived.
+
+**Class-subject relationship**
+
+Academic classes and subjects use a many-to-many relationship through the `academic_class_subject` pivot table.
+
+Each assignment connects one academic class with one subject. A unique database constraint prevents duplicate assignments for the same class and subject.
 
 ### Authentication and Authorization
 
@@ -85,6 +122,17 @@ Administrators can:
 | Create student enrollments | Yes | No |
 | Update enrollment details and statuses | Yes | No |
 | Permanently delete enrollment records | No | No |
+| View academic classes | Yes | Yes |
+| Create academic classes | Yes | No |
+| Update academic classes | Yes | No |
+| Archive academic classes | Yes | No |
+| View subjects | Yes | Yes |
+| Create subjects | Yes | No |
+| Update subjects | Yes | No |
+| Archive subjects | Yes | No |
+| View class-subject assignments | Yes | Yes |
+| Assign subjects to classes | Yes | No |
+| Remove subject assignments | Yes | No |
 | View user directory | Yes | No |
 | Create staff accounts | Yes | No |
 | Manage user roles | Yes | No |
@@ -94,7 +142,7 @@ Administrators can:
 
 | Technology | Purpose |
 |---|---|
-| PHP 8.3+ | Backend programming language |
+| PHP 8.4 or later | Backend programming language |
 | Laravel 13 | Backend web framework |
 | MySQL / SQLite | Relational databases |
 | Blade | Server-side templating |
@@ -112,7 +160,7 @@ Administrators can:
 
 Before installing the application, ensure that the following tools are available:
 
-- PHP 8.3 or later
+- PHP 8.4 or later
 - Composer 2
 - Node.js 24
 - npm
@@ -251,6 +299,12 @@ Run the student enrollment feature tests:
 php artisan test tests/Feature/StudentEnrollmentManagementTest.php
 ```
 
+Run the academic class-subject assignment feature tests:
+
+```bash
+php artisan test tests/Feature/AcademicClassSubjectAssignmentTest.php
+```
+
 Run tests matching a particular name:
 
 ```bash
@@ -323,7 +377,6 @@ The following features are potential future development milestones.
 
 ### Academic Management
 
-- Subject management
 - Teacher management
 - Attendance management
 - Examination and grade management
@@ -387,11 +440,11 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, academic class management, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
 
-Student Enrollment Management includes administrator-controlled enrollment creation and editing, staff access to enrollment records, enrollment status management, duplicate prevention, and historical record preservation.
+The application supports many-to-many relationships between academic classes and subjects, administrator-controlled subject assignments, and staff access to assignment information.
 
-The complete automated test suite has passed. Development continues incrementally, with automated testing and GitHub Actions supporting the development workflow.
+Automated testing and GitHub Actions support the development workflow.
 
 ---
 
