@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AcademicClass;
+use App\Models\Subject;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -79,13 +80,29 @@ class AcademicClassController extends Controller
     }
 
     /**
-     * Display an individual class.
+     * Display an individual class and its assigned subjects.
      */
     public function show(AcademicClass $academicClass): View
     {
         Gate::authorize('view', $academicClass);
 
-        return view('academic-classes.show', compact('academicClass'));
+        // Load the subjects already assigned to this class.
+        $academicClass->load('subjects');
+
+        // Find active subjects that haven't been assigned yet.
+        $availableSubjects = Subject::query()
+            ->where('status', Subject::STATUS_ACTIVE)
+            ->whereNotIn(
+                'id',
+                $academicClass->subjects->modelKeys()
+            )
+            ->orderBy('name')
+            ->get();
+
+        return view('academic-classes.show', compact(
+            'academicClass',
+            'availableSubjects'
+        ));
     }
 
     /**
