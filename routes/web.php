@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AcademicClassController;
 use App\Http\Controllers\AcademicClassSubjectController;
@@ -86,6 +87,43 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Student profile
     Route::get('/students/{student}', [StudentController::class, 'show'])
         ->name('students.show');
+
+    // Teacher Management
+
+    // Teacher listing
+    Route::get('/teachers', [TeacherController::class, 'index'])
+        ->name('teachers.index');
+
+    // Teacher registration
+    Route::get('/teachers/create', [TeacherController::class, 'create'])
+        ->name('teachers.create');
+
+    Route::post('/teachers', [TeacherController::class, 'store'])
+        ->name('teachers.store');
+
+    // Archived teachers
+    Route::get('/teachers/archived', [TeacherController::class, 'archived'])
+        ->name('teachers.archived');
+
+    // Teacher editing
+    Route::get('/teachers/{teacher}/edit', [TeacherController::class, 'edit'])
+        ->name('teachers.edit');
+
+    Route::put('/teachers/{teacher}', [TeacherController::class, 'update'])
+        ->name('teachers.update');
+
+    // Teacher archiving
+    Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])
+        ->name('teachers.destroy');
+
+    // Teacher restoration
+    Route::post('/teachers/{teacher}/restore', [TeacherController::class, 'restore'])
+        ->withTrashed()
+        ->name('teachers.restore');
+
+    // Teacher profile
+    Route::get('/teachers/{teacher}', [TeacherController::class, 'show'])
+        ->name('teachers.show');
 
     // Academic class management
     Route::get('/academic-classes', [AcademicClassController::class, 'index'])

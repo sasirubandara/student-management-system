@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student record management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher record management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -37,6 +37,22 @@ This project is developed incrementally as a learning and software development p
 Each student and academic class combination can have only one enrollment record. The unique database constraint prevents creating another record for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
 
 Enrollment records do not use soft deletes, and the database relationships protect them against accidental deletion of related student or academic class records.
+
+### Teacher Management
+
+- Register new teachers.
+- View the teacher directory.
+- View individual teacher profiles.
+- Edit teacher information.
+- Search teachers by teacher number, first name, last name, and email.
+- Paginate teacher records.
+- Maintain teacher employment dates and employment statuses.
+- Support Active and Inactive teacher statuses.
+- Archive teachers using soft deletes.
+- View archived teacher records.
+- Restore archived teachers.
+
+Teacher records are maintained separately from system user accounts. Teacher profiles contain personal information, contact information, and employment information.
 
 ### Academic Class Management
 
@@ -118,6 +134,13 @@ Administrators can:
 | Archive students | Yes | No |
 | View archived students | Yes | No |
 | Restore archived students | Yes | No |
+| View teacher directory | Yes | Yes |
+| View teacher profiles | Yes | Yes |
+| Register teachers | Yes | No |
+| Edit teacher records | Yes | No |
+| Archive teachers | Yes | No |
+| View archived teachers | Yes | No |
+| Restore archived teachers | Yes | No |
 | View enrollment records | Yes | Yes |
 | Create student enrollments | Yes | No |
 | Update enrollment details and statuses | Yes | No |
@@ -305,6 +328,12 @@ Run the academic class-subject assignment feature tests:
 php artisan test tests/Feature/AcademicClassSubjectAssignmentTest.php
 ```
 
+Run the teacher management feature tests:
+
+```bash
+php artisan test tests/Feature/TeacherManagementTest.php
+```
+
 Run tests matching a particular name:
 
 ```bash
@@ -377,9 +406,9 @@ The following features are potential future development milestones.
 
 ### Academic Management
 
-- Teacher management
 - Attendance management
 - Examination and grade management
+- Teacher-class and subject assignments
 
 ### Advanced Features
 
@@ -432,7 +461,7 @@ student-management-system/
 
 ## Privacy and Security
 
-- Only synthetic student information should be used in development and demonstrations.
+- Only synthetic student and teacher information should be used in development and demonstrations.
 - Never commit passwords, API keys, database credentials, or other environment secrets.
 - Use strong passwords for administrator accounts.
 - Review authorization rules when adding new functionality.
@@ -440,9 +469,9 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
 
-The application supports many-to-many relationships between academic classes and subjects, administrator-controlled subject assignments, and staff access to assignment information.
+The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, administrator-controlled subject assignments, and staff access to authorized records.
 
 Automated testing and GitHub Actions support the development workflow.
 
