@@ -8,6 +8,7 @@ use App\Http\Controllers\AcademicClassController;
 use App\Http\Controllers\AcademicClassSubjectController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\StudentEnrollmentController;
+use App\Http\Controllers\TeachingAssignmentController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -206,5 +207,33 @@ Route::middleware(['auth', 'active'])->group(function () {
 
     Route::get('/student-enrollments/{studentEnrollment}', [StudentEnrollmentController::class, 'show'])
         ->name('student-enrollments.show');
+
+    // Teaching Assignment Management
+
+    // Teaching assignment listing
+    Route::get('/teaching-assignments', [TeachingAssignmentController::class, 'index'])
+        ->name('teaching-assignments.index');
+
+    // Create teaching assignment
+    Route::get('/teaching-assignments/create', [TeachingAssignmentController::class, 'create'])
+        ->name('teaching-assignments.create');
+
+    Route::post('/teaching-assignments', [TeachingAssignmentController::class, 'store'])
+        ->name('teaching-assignments.store');
+
+    // Edit teaching assignment
+    Route::get('/teaching-assignments/{teachingAssignment}/edit', [TeachingAssignmentController::class, 'edit'])
+        ->name('teaching-assignments.edit');
+
+    Route::put('/teaching-assignments/{teachingAssignment}', [TeachingAssignmentController::class, 'update'])
+        ->name('teaching-assignments.update');
+
+    // Remove teaching assignment
+    Route::delete('/teaching-assignments/{teachingAssignment}', [TeachingAssignmentController::class, 'destroy'])
+        ->name('teaching-assignments.destroy');
+
+    // Teaching assignment details
+    Route::get('/teaching-assignments/{teachingAssignment}', [TeachingAssignmentController::class, 'show'])
+        ->name('teaching-assignments.show');
 
 });

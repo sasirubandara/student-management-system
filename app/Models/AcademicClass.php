@@ -48,6 +48,14 @@ class AcademicClass extends Model
     }
 
     /**
+     * Get the teaching assignments for this academic class.
+     */
+    public function teachingAssignments(): HasMany
+    {
+        return $this->hasMany(TeachingAssignment::class);
+    }
+
+    /**
      * Get the subjects assigned to this academic class.
      */
     public function subjects(): BelongsToMany
