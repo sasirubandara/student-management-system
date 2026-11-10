@@ -13,6 +13,7 @@ use App\Http\Controllers\AttendanceSessionController;
 use App\Http\Controllers\StudentAttendanceController;
 use App\Http\Controllers\ExaminationController;
 use App\Http\Controllers\ExaminationResultController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -39,6 +40,10 @@ Route::post('/logout', [AuthController::class, 'destroy'])
 
 // Protected application routes
 Route::middleware(['auth', 'active'])->group(function () {
+
+    // Application dashboard
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
 
     // User management
     Route::get('/users', [UserController::class, 'index'])

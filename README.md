@@ -185,6 +185,20 @@ The application calculates grades on the server using the grading scale configur
 
 Foreign-key restrictions protect examinations, student enrollments, and historical examination results against accidental deletion of related records.
 
+### Dashboard and Statistics
+
+- Provide a central dashboard for administrators and staff after authentication.
+- Display summary cards for students, teachers, academic classes, subjects, student enrollments, teaching assignments, attendance sessions this month, and examinations.
+- Show student and teacher totals with active and inactive counts.
+- Summarize student enrollments by status: **Active**, **Completed**, and **Withdrawn**.
+- Summarize attendance records by status: **Present**, **Absent**, **Late**, and **Excused**.
+- Display upcoming examinations with their dates and teaching assignment details.
+- Display recent student records, student enrollments, and attendance sessions.
+- Show archived student and teacher counts to administrators only.
+- Keep dashboard statistics based on the application's existing academic and attendance records without introducing additional database tables.
+
+The dashboard provides administrators and staff with an overview of current academic activity. Archived student and teacher statistics are restricted to administrators in accordance with the application's role permissions.
+
 ### Authentication and Authorization
 
 - Secure user login and logout.
@@ -467,6 +481,12 @@ Run the examination management feature tests:
 php artisan test tests/Feature/ExaminationManagementTest.php
 ```
 
+Run the dashboard and statistics feature tests:
+
+```bash
+php artisan test tests/Feature/DashboardTest.php
+```
+
 Run the grade calculator unit tests:
 
 ```bash
@@ -549,7 +569,6 @@ Potential future academic functionality can be added as the application develops
 
 ### Advanced Features
 
-- Dashboard and statistics.
 - Reports.
 - CSV import and export.
 - Audit logs.
@@ -607,9 +626,11 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, authentication, role-based authorization, user management, and account activation have been implemented.
 
-The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, and configurable grade calculation.
+The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, and a dashboard with academic and attendance summaries.
+
+The dashboard displays summary cards, enrollment and attendance status totals, upcoming examinations, and recent student, enrollment, and attendance records. Archived student and teacher counts are visible to administrators only.
 
 Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Historical academic records are preserved through database relationships and deletion restrictions.
 

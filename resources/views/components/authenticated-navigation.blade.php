@@ -1,11 +1,15 @@
 <nav class="app-navigation" aria-label="Main navigation">
 
-    <a href="{{ route('students.index') }}"
+    <a href="{{ route('dashboard') }}"
        class="app-navigation__brand">
         Student Management System
     </a>
 
     <div class="app-navigation__links">
+
+        <a href="{{ route('dashboard') }}">
+            Dashboard
+        </a>
 
         <a href="{{ route('students.index') }}">
             Students

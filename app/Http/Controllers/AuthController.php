@@ -35,7 +35,7 @@ class AuthController extends Controller
             $request->session()->regenerate();
 
             return redirect()->intended(
-                route('students.index')
+                route('dashboard')
             );
         }
 
