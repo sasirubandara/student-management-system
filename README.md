@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher record management, academic class management, subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -17,7 +17,8 @@ This project is developed incrementally as a learning and software development p
 - Search students by student number, first name, last name, and email.
 - Paginate student records.
 - Archive students using soft deletes.
-- Restore archived student records.
+- View archived student records.
+- Restore archived students.
 - Maintain student registration dates and record statuses.
 
 ### Student Enrollment Management
@@ -34,9 +35,9 @@ This project is developed incrementally as a learning and software development p
 
 **Enrollment history and duplicate prevention**
 
-Each student and academic class combination can have only one enrollment record. The unique database constraint prevents creating another record for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
+Each student and academic class combination can have only one enrollment record. A unique database constraint prevents another record from being created for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
 
-Enrollment records do not use soft deletes, and the database relationships protect them against accidental deletion of related student or academic class records.
+Enrollment records do not use soft deletes. Database relationships protect enrollment records against accidental deletion of related student or academic class records.
 
 ### Teacher Management
 
@@ -115,6 +116,37 @@ Different teachers can be assigned to the same class and subject combination. A 
 
 Teaching assignments do not use soft deletes. Administrators can remove an assignment, while foreign-key restrictions protect related teacher, academic class, and subject records from accidental deletion.
 
+### Attendance Management
+
+- Create subject-based attendance sessions linked to teaching assignments.
+- Record attendance for students with active enrollments in the assigned academic class.
+- Support four attendance statuses: **Present**, **Absent**, **Late**, and **Excused**.
+- Record attendance for multiple students in one submission.
+- Update previously recorded student attendance.
+- Add optional remarks to individual attendance records.
+- View attendance session details and attendance summaries.
+- Search attendance sessions by teacher, academic class, subject, and date.
+- Paginate attendance session records.
+- Prevent duplicate sessions for the same teaching assignment and date.
+- Prevent duplicate student attendance records within a session.
+- Reject attendance records for students enrolled in a different academic class.
+- Reject attendance recording for inactive or archived students.
+- Reject attendance recording for completed or withdrawn enrollments.
+- Preserve historical attendance records for inactive or archived students.
+- Allow administrators and staff to view, create, and update attendance.
+- Restrict removal of attendance sessions and individual attendance records to administrators.
+- Prevent removal of attendance sessions that contain student attendance records.
+
+**Attendance session and student attendance relationships**
+
+Each attendance session belongs to one teaching assignment and has an attendance date. A unique database constraint prevents more than one session from being created for the same teaching assignment on the same date.
+
+Individual student attendance records connect an attendance session to a student enrollment. A student can have only one attendance record per session.
+
+Attendance records retain their relationships with student enrollments and attendance sessions. Foreign-key restrictions help protect historical attendance records against accidental deletion of related records.
+
+Each attendance session also records the user who created it.
+
 ### Authentication and Authorization
 
 - Secure user login and logout.
@@ -184,6 +216,12 @@ Administrators can:
 | Create teaching assignments | Yes | No |
 | Update teaching assignments | Yes | No |
 | Remove teaching assignments | Yes | No |
+| View attendance sessions | Yes | Yes |
+| Create attendance sessions | Yes | Yes |
+| View student attendance records | Yes | Yes |
+| Record and update student attendance | Yes | Yes |
+| Remove empty attendance sessions | Yes | No |
+| Remove individual attendance records | Yes | No |
 | View user directory | Yes | No |
 | Create staff accounts | Yes | No |
 | Manage user roles | Yes | No |
@@ -240,13 +278,15 @@ composer install
 
 ### 3. Configure the environment
 
-Copy the example environment file:
+Copy the example environment file.
+
+For macOS and Linux:
 
 ```bash
 cp .env.example .env
 ```
 
-For Windows PowerShell, you can also use:
+For Windows PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
@@ -262,13 +302,15 @@ php artisan key:generate
 
 The example environment is configured to use SQLite by default.
 
-Create the SQLite database file:
+Create the SQLite database file.
+
+For macOS and Linux:
 
 ```bash
 touch database/database.sqlite
 ```
 
-On Windows PowerShell:
+For Windows PowerShell:
 
 ```powershell
 New-Item -ItemType File -Force database/database.sqlite
@@ -368,6 +410,12 @@ Run the teacher-class-subject assignment feature tests:
 php artisan test tests/Feature/TeachingAssignmentManagementTest.php
 ```
 
+Run the attendance management feature tests:
+
+```bash
+php artisan test tests/Feature/AttendanceManagementTest.php
+```
+
 Run tests matching a particular name:
 
 ```bash
@@ -440,7 +488,6 @@ The following features are potential future development milestones.
 
 ### Academic Management
 
-- Attendance management.
 - Examination and grade management.
 
 ### Advanced Features
@@ -502,9 +549,11 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, attendance management, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
 
-The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, and staff access to authorized records.
+The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, and staff access to authorized records.
+
+Attendance sessions are linked to teaching assignments, and individual student attendance records are linked to student enrollments. The application supports Present, Absent, Late, and Excused attendance statuses, with administrator-controlled removal of attendance records.
 
 Automated testing and GitHub Actions support the development workflow.
 
