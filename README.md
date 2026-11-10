@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher record management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher record management, academic class management, subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -91,6 +91,30 @@ Academic classes and subjects use a many-to-many relationship through the `acade
 
 Each assignment connects one academic class with one subject. A unique database constraint prevents duplicate assignments for the same class and subject.
 
+### Teacher-Class-Subject Assignment
+
+- Assign teachers to subjects within academic classes.
+- Allow teachers to teach multiple subjects and academic classes.
+- Allow multiple teachers to teach the same subject in the same academic class.
+- View teaching assignment listings and individual assignment details.
+- Search teaching assignments by teacher, academic class, and subject information.
+- Paginate teaching assignment records.
+- Allow administrators to create, update, and remove teaching assignments.
+- Allow administrators and staff to view teaching assignments.
+- Prevent duplicate assignments for the same teacher, academic class, and subject.
+- Require the subject to already be assigned to the selected academic class.
+- Reject inactive or archived teachers, academic classes, and subjects when creating or updating assignments.
+
+**Teaching assignment relationship and duplicate prevention**
+
+Each teaching assignment connects one teacher, one academic class, and one subject through the `teaching_assignments` table.
+
+The table uses foreign keys to maintain relationships with teachers, academic classes, and subjects. A composite unique database constraint prevents the same teacher from being assigned to the same subject in the same academic class more than once.
+
+Different teachers can be assigned to the same class and subject combination. A teacher can also be assigned to different classes and subjects.
+
+Teaching assignments do not use soft deletes. Administrators can remove an assignment, while foreign-key restrictions protect related teacher, academic class, and subject records from accidental deletion.
+
 ### Authentication and Authorization
 
 - Secure user login and logout.
@@ -156,6 +180,10 @@ Administrators can:
 | View class-subject assignments | Yes | Yes |
 | Assign subjects to classes | Yes | No |
 | Remove subject assignments | Yes | No |
+| View teaching assignments | Yes | Yes |
+| Create teaching assignments | Yes | No |
+| Update teaching assignments | Yes | No |
+| Remove teaching assignments | Yes | No |
 | View user directory | Yes | No |
 | Create staff accounts | Yes | No |
 | Manage user roles | Yes | No |
@@ -334,6 +362,12 @@ Run the teacher management feature tests:
 php artisan test tests/Feature/TeacherManagementTest.php
 ```
 
+Run the teacher-class-subject assignment feature tests:
+
+```bash
+php artisan test tests/Feature/TeachingAssignmentManagementTest.php
+```
+
 Run tests matching a particular name:
 
 ```bash
@@ -406,26 +440,25 @@ The following features are potential future development milestones.
 
 ### Academic Management
 
-- Attendance management
-- Examination and grade management
-- Teacher-class and subject assignments
+- Attendance management.
+- Examination and grade management.
 
 ### Advanced Features
 
-- Dashboard and statistics
-- Reports
-- CSV import and export
-- Audit logs
-- Notifications
-- Advanced search and filtering
+- Dashboard and statistics.
+- Reports.
+- CSV import and export.
+- Audit logs.
+- Notifications.
+- Advanced search and filtering.
 
 ### Further Quality Improvements
 
-- Additional automated test coverage
-- Application security improvements
-- Database backup and recovery
-- Deployment preparation
-- Performance optimization
+- Additional automated test coverage.
+- Application security improvements.
+- Database backup and recovery.
+- Deployment preparation.
+- Performance optimization.
 
 ## Project Structure
 
@@ -469,9 +502,9 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
 
-The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, administrator-controlled subject assignments, and staff access to authorized records.
+The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, and staff access to authorized records.
 
 Automated testing and GitHub Actions support the development workflow.
 
