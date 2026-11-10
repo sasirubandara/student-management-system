@@ -11,6 +11,8 @@ use App\Http\Controllers\StudentEnrollmentController;
 use App\Http\Controllers\TeachingAssignmentController;
 use App\Http\Controllers\AttendanceSessionController;
 use App\Http\Controllers\StudentAttendanceController;
+use App\Http\Controllers\ExaminationController;
+use App\Http\Controllers\ExaminationResultController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -266,5 +268,39 @@ Route::middleware(['auth', 'active'])->group(function () {
         '/student-attendances/{studentAttendance}',
         [StudentAttendanceController::class, 'destroy']
     )->name('student-attendances.destroy');
+
+    // Examination management routes
+    Route::get('/examinations', [ExaminationController::class, 'index'])
+        ->name('examinations.index');
+
+    Route::get('/examinations/create', [ExaminationController::class, 'create'])
+        ->name('examinations.create');
+
+    Route::post('/examinations', [ExaminationController::class, 'store'])
+        ->name('examinations.store');
+
+    Route::get('/examinations/{examination}/edit', [ExaminationController::class, 'edit'])
+        ->name('examinations.edit');
+
+    Route::put('/examinations/{examination}', [ExaminationController::class, 'update'])
+        ->name('examinations.update');
+
+    Route::get('/examinations/{examination}', [ExaminationController::class, 'show'])
+        ->name('examinations.show');
+
+    Route::put(
+        '/examinations/{examination}/results',
+        [ExaminationResultController::class, 'save']
+    )->name('examinations.results.save');
+
+    Route::delete(
+        '/examinations/{examination}',
+        [ExaminationController::class, 'destroy']
+    )->name('examinations.destroy');
+
+    Route::delete(
+        '/examination-results/{examinationResult}',
+        [ExaminationResultController::class, 'destroy']
+    )->name('examination-results.destroy');
 
 });

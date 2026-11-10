@@ -51,4 +51,12 @@ class TeachingAssignment extends Model
     {
         return $this->hasMany(AttendanceSession::class);
     }
+
+    /**
+     * Get the examinations for this teaching assignment.
+     */
+    public function examinations(): HasMany
+    {
+        return $this->hasMany(Examination::class);
+    }
 }

@@ -29,6 +29,12 @@
             </a>
         @endcan
 
+        @can('viewAny', \App\Models\Examination::class)
+            <a href="{{ route('examinations.index') }}">
+                Examinations
+            </a>
+        @endcan
+
         @can('viewAny', \App\Models\User::class)
             <a href="{{ route('users.index') }}">
                 Users

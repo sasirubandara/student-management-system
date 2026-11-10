@@ -63,4 +63,12 @@ class StudentEnrollment extends Model
     {
         return $this->hasMany(StudentAttendance::class);
     }
+
+    /**
+     * Get the examination results for this enrollment.
+     */
+    public function examinationResults(): HasMany
+    {
+        return $this->hasMany(ExaminationResult::class);
+    }
 }
