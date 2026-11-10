@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -147,6 +147,44 @@ Attendance records retain their relationships with student enrollments and atten
 
 Each attendance session also records the user who created it.
 
+### Examination and Grade Management
+
+- Create examinations linked to teaching assignments.
+- Support multiple examination types: Quiz, Assignment, Midterm, Term Examination, Final Examination, Practical, and Other.
+- Set examination dates, maximum marks, and optional pass marks.
+- Add optional examination descriptions.
+- View examination listings and individual examination details.
+- Search examinations by title, teacher, academic class, and subject.
+- Paginate examination records.
+- Allow administrators and staff to create and update examinations.
+- Prevent duplicate examinations for the same teaching assignment, title, and date.
+- Record examination results for multiple students in one submission.
+- Update previously recorded examination results without creating duplicates.
+- Associate examination results with student enrollment records.
+- Automatically calculate grades using a configurable grading scale.
+- Calculate percentages based on marks obtained and maximum marks.
+- Validate examination marks to prevent negative values or marks exceeding the maximum.
+- Validate optional pass marks against maximum marks.
+- Reject results for students outside the examination's assigned academic class.
+- Reject new results for inactive or archived students.
+- Reject new results for completed or withdrawn enrollments.
+- Preserve historical examination results when students are archived or enrollments become inactive.
+- Prevent changing an examination's teaching assignment after results have been recorded.
+- Prevent reducing maximum marks below an already recorded result.
+- Recalculate existing grades when maximum marks are changed.
+- Restrict examination deletion and individual result deletion to administrators.
+- Prevent examination deletion when examination results exist.
+
+**Examination and result relationships**
+
+Each examination belongs to one teaching assignment, connecting a teacher, an academic class, and a subject.
+
+Each examination result connects an examination to a student enrollment. A unique database constraint prevents duplicate results for the same examination and enrollment.
+
+The application calculates grades on the server using the grading scale configured in `config/examinations.php`. Grades are determined from the percentage of marks obtained relative to the examination's maximum marks.
+
+Foreign-key restrictions protect examinations, student enrollments, and historical examination results against accidental deletion of related records.
+
 ### Authentication and Authorization
 
 - Secure user login and logout.
@@ -222,6 +260,13 @@ Administrators can:
 | Record and update student attendance | Yes | Yes |
 | Remove empty attendance sessions | Yes | No |
 | Remove individual attendance records | Yes | No |
+| View examinations | Yes | Yes |
+| Create examinations | Yes | Yes |
+| Update examinations | Yes | Yes |
+| Remove examinations | Yes | No |
+| View examination results | Yes | Yes |
+| Record and update examination results | Yes | Yes |
+| Remove individual examination results | Yes | No |
 | View user directory | Yes | No |
 | Create staff accounts | Yes | No |
 | Manage user roles | Yes | No |
@@ -416,6 +461,18 @@ Run the attendance management feature tests:
 php artisan test tests/Feature/AttendanceManagementTest.php
 ```
 
+Run the examination management feature tests:
+
+```bash
+php artisan test tests/Feature/ExaminationManagementTest.php
+```
+
+Run the grade calculator unit tests:
+
+```bash
+php artisan test tests/Unit/GradeCalculatorTest.php
+```
+
 Run tests matching a particular name:
 
 ```bash
@@ -488,7 +545,7 @@ The following features are potential future development milestones.
 
 ### Academic Management
 
-- Examination and grade management.
+Potential future academic functionality can be added as the application develops.
 
 ### Advanced Features
 
@@ -517,7 +574,8 @@ student-management-system/
 │   │   ├── Controllers/
 │   │   └── Middleware/
 │   ├── Models/
-│   └── Policies/
+│   ├── Policies/
+│   └── Services/
 ├── bootstrap/
 ├── config/
 ├── database/
@@ -549,11 +607,11 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, attendance management, student enrollment management, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, authentication, role-based authorization, user management, and account activation have been implemented.
 
-The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, and staff access to authorized records.
+The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, and configurable grade calculation.
 
-Attendance sessions are linked to teaching assignments, and individual student attendance records are linked to student enrollments. The application supports Present, Absent, Late, and Excused attendance statuses, with administrator-controlled removal of attendance records.
+Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Historical academic records are preserved through database relationships and deletion restrictions.
 
 Automated testing and GitHub Actions support the development workflow.
 
