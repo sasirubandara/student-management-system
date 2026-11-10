@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StudentEnrollment extends Model
 {
@@ -53,5 +54,13 @@ class StudentEnrollment extends Model
     public function academicClass(): BelongsTo
     {
         return $this->belongsTo(AcademicClass::class)->withTrashed();
+    }
+
+    /**
+     * Get the attendance records for this enrollment.
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(StudentAttendance::class);
     }
 }

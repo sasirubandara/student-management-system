@@ -23,6 +23,12 @@
             </a>
         @endcan
 
+        @can('viewAny', \App\Models\AttendanceSession::class)
+            <a href="{{ route('attendance-sessions.index') }}">
+                Attendance
+            </a>
+        @endcan
+
         @can('viewAny', \App\Models\User::class)
             <a href="{{ route('users.index') }}">
                 Users

@@ -9,6 +9,8 @@ use App\Http\Controllers\AcademicClassSubjectController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\StudentEnrollmentController;
 use App\Http\Controllers\TeachingAssignmentController;
+use App\Http\Controllers\AttendanceSessionController;
+use App\Http\Controllers\StudentAttendanceController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -235,5 +237,34 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Teaching assignment details
     Route::get('/teaching-assignments/{teachingAssignment}', [TeachingAssignmentController::class, 'show'])
         ->name('teaching-assignments.show');
+
+    // Attendance Session Management
+
+    Route::get('/attendance-sessions', [AttendanceSessionController::class, 'index'])
+        ->name('attendance-sessions.index');
+
+    Route::get('/attendance-sessions/create', [AttendanceSessionController::class, 'create'])
+        ->name('attendance-sessions.create');
+
+    Route::post('/attendance-sessions', [AttendanceSessionController::class, 'store'])
+        ->name('attendance-sessions.store');
+
+    Route::put(
+        '/attendance-sessions/{attendanceSession}/student-attendances',
+        [StudentAttendanceController::class, 'save']
+    )->name('attendance-sessions.student-attendances.save');
+
+    Route::get('/attendance-sessions/{attendanceSession}', [AttendanceSessionController::class, 'show'])
+        ->name('attendance-sessions.show');
+
+    Route::delete('/attendance-sessions/{attendanceSession}', [AttendanceSessionController::class, 'destroy'])
+        ->name('attendance-sessions.destroy');
+
+    // Individual Student Attendance Management
+
+    Route::delete(
+        '/student-attendances/{studentAttendance}',
+        [StudentAttendanceController::class, 'destroy']
+    )->name('student-attendances.destroy');
 
 });
