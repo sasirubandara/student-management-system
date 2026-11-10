@@ -14,7 +14,7 @@ it('displays the login page to guests', function () {
         ->assertSee('Sign In');
 });
 
-it('authenticates a user with valid credentials', function () {
+it('authenticates a user with valid credentials and redirects to the dashboard', function () {
     $user = User::factory()->create([
         'email' => 'admin@example.test',
         'password' => Hash::make('StrongPassword123!'),
@@ -27,7 +27,7 @@ it('authenticates a user with valid credentials', function () {
         'password' => 'StrongPassword123!',
     ]);
 
-    $response->assertRedirect(route('students.index'));
+    $response->assertRedirect(route('dashboard'));
 
     $this->assertAuthenticatedAs($user);
 });
