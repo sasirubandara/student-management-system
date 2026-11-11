@@ -15,6 +15,7 @@ use App\Http\Controllers\ExaminationController;
 use App\Http\Controllers\ExaminationResultController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\StudentCsvController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -111,6 +112,19 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/students/{student}/restore', [StudentController::class, 'restore'])
         ->withTrashed()
         ->name('students.restore');
+
+    // Student CSV import and export
+    Route::get('/students/export', [StudentCsvController::class, 'export'])
+        ->name('students.export');
+
+    Route::get('/students/import', [StudentCsvController::class, 'createImport'])
+        ->name('students.import.create');
+
+    Route::post('/students/import', [StudentCsvController::class, 'importCsv'])
+        ->name('students.import.store');
+
+    Route::get('/students/import/template', [StudentCsvController::class, 'downloadTemplate'])
+        ->name('students.import.template');
 
     // Student profile
     Route::get('/students/{student}', [StudentController::class, 'show'])

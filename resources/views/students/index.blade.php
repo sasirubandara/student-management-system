@@ -18,6 +18,25 @@
     </div>
 
     <div class="students-page__header-actions">
+
+    @can('create', \App\Models\Student::class)
+        <a
+            href="{{ route('students.import.create') }}"
+            class="students-page__button students-page__button--secondary"
+        >
+            Import CSV
+        </a>
+    @endcan
+
+    @can('viewAny', \App\Models\Student::class)
+        <a
+            href="{{ route('students.export', ['search' => $search]) }}"
+            class="students-page__button"
+        >
+            Export CSV
+        </a>
+    @endcan
+
     @can('viewArchived', \App\Models\Student::class)
 
     <a href="{{ route('students.archived') }}"
@@ -26,6 +45,7 @@
     </a>
 
     @endcan
+
     </div>
         </header>
 

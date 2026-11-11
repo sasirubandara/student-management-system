@@ -1252,3 +1252,28 @@ body {
         break-inside: avoid;
     }
 }
+
+/* Student CSV Import */
+
+.import-errors {
+    margin-top: 24px;
+    padding: 18px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+}
+
+.import-errors h3 {
+    margin-top: 0;
+    color: #9a3412;
+}
+
+.import-errors ul {
+    margin-bottom: 0;
+    padding-left: 22px;
+}
+
+.import-errors li {
+    margin-bottom: 8px;
+    overflow-wrap: anywhere;
+}

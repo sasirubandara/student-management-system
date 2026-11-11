@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, student CSV import and export, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -20,6 +20,40 @@ This project is developed incrementally as a learning and software development p
 - View archived student records.
 - Restore archived students.
 - Maintain student registration dates and record statuses.
+
+### Student CSV Import and Export
+
+- Import multiple student records using CSV files.
+- Download a blank CSV template containing the required and optional columns.
+- Validate CSV headers and individual student records before importing.
+- Report invalid rows and duplicate student numbers.
+- Continue importing valid records when other rows contain errors.
+- Default student status to Active when the status column is omitted or empty.
+- Prevent duplicate student numbers, including those belonging to archived students.
+- Export active student records as CSV files.
+- Export student records using the current search criteria.
+- Protect exported CSV values against spreadsheet formula injection.
+- Apply existing student authorization policies to import, template download, and export operations.
+- Display import summaries and row-level error messages.
+- Reuse the existing student database table without introducing additional database tables.
+
+**CSV column requirements**
+
+Required columns:
+
+- `student_number`
+- `first_name`
+- `last_name`
+- `enrollment_date`
+
+Optional columns:
+
+- `email`
+- `phone`
+- `date_of_birth`
+- `status`
+
+CSV uploads are limited to 2 MB.
 
 ### Student Enrollment Management
 
@@ -258,6 +292,9 @@ Administrators can:
 | Archive students | Yes | No |
 | View archived students | Yes | No |
 | Restore archived students | Yes | No |
+| Import student records | Yes | Yes |
+| Export active student records | Yes | Yes |
+| Download student CSV template | Yes | Yes |
 | View teacher directory | Yes | Yes |
 | View teacher profiles | Yes | Yes |
 | Register teachers | Yes | No |
@@ -469,6 +506,12 @@ Run the student enrollment feature tests:
 php artisan test tests/Feature/StudentEnrollmentManagementTest.php
 ```
 
+Run the student CSV import and export feature tests:
+
+```bash
+php artisan test tests/Feature/StudentCsvImportExportTest.php
+```
+
 Run the academic class-subject assignment feature tests:
 
 ```bash
@@ -593,7 +636,6 @@ Potential future academic functionality can be added as the application develops
 
 ### Advanced Features
 
-- CSV import and export.
 - Audit logs.
 - Notifications.
 - Advanced search and filtering.
@@ -649,9 +691,11 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, academic reports, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, student CSV import and export, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, academic reports, authentication, role-based authorization, user management, and account activation have been implemented.
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
+
+Student records can be imported and exported using CSV files. The import functionality validates individual records, identifies duplicates, and reports row-level errors while allowing valid records to be imported. The export functionality supports active student records and current search criteria, with protection against spreadsheet formula injection.
 
 The dashboard displays summary cards, enrollment and attendance status totals, upcoming examinations, and recent student, enrollment, and attendance records. Archived student and teacher counts are visible to administrators only.
 
