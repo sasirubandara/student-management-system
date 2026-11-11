@@ -14,6 +14,7 @@ use App\Http\Controllers\StudentAttendanceController;
 use App\Http\Controllers\ExaminationController;
 use App\Http\Controllers\ExaminationResultController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -44,6 +45,23 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Application dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
+
+    // Reports
+    Route::get('/reports', [ReportController::class, 'index'])
+        ->name('reports.index');
+
+    Route::get('/reports/attendance', [ReportController::class, 'attendance'])
+        ->name('reports.attendance');
+
+    Route::get('/reports/examinations', [ReportController::class, 'examinations'])
+        ->name('reports.examinations');
+
+    Route::get('/reports/students', [ReportController::class, 'students'])
+        ->name('reports.students.index');
+
+    Route::get('/reports/students/{student}', [ReportController::class, 'student'])
+        ->withTrashed()
+        ->name('reports.students.show');
 
     // User management
     Route::get('/users', [UserController::class, 'index'])
