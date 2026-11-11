@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subject;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -50,8 +52,10 @@ class SubjectController extends Controller
     /**
      * Store a newly created subject.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', Subject::class);
 
         $validated = $request->validate([
@@ -67,7 +71,22 @@ class SubjectController extends Controller
             ],
         ]);
 
-        Subject::create($validated);
+        $subject = DB::transaction(function () use (
+            $validated,
+            $auditLogger
+        ): Subject {
+            $subject = Subject::create($validated);
+
+            $auditLogger->record(
+                'subject.created',
+                $subject,
+                [
+                    'changed_fields' => array_keys($validated),
+                ]
+            );
+
+            return $subject;
+        });
 
         return to_route('subjects.index')
             ->with('success', 'Subject created successfully.');
@@ -98,7 +117,8 @@ class SubjectController extends Controller
      */
     public function update(
         Request $request,
-        Subject $subject
+        Subject $subject,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('update', $subject);
 
@@ -123,7 +143,29 @@ class SubjectController extends Controller
             ],
         ]);
 
-        $subject->update($validated);
+        DB::transaction(function () use (
+            $subject,
+            $validated,
+            $auditLogger
+        ): void {
+            $subject->fill($validated);
+
+            $changedFields = array_keys($subject->getDirty());
+
+            if ($changedFields === []) {
+                return;
+            }
+
+            $subject->save();
+
+            $auditLogger->record(
+                'subject.updated',
+                $subject,
+                [
+                    'changed_fields' => $changedFields,
+                ]
+            );
+        });
 
         return to_route('subjects.show', $subject)
             ->with('success', 'Subject updated successfully.');
@@ -132,11 +174,32 @@ class SubjectController extends Controller
     /**
      * Soft-delete a subject.
      */
-    public function destroy(Subject $subject): RedirectResponse
-    {
+    public function destroy(
+        Subject $subject,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('delete', $subject);
 
-        $subject->delete();
+        DB::transaction(function () use (
+            $subject,
+            $auditLogger
+        ): void {
+            $auditProperties = [
+                'record' => [
+                    'name' => $subject->name,
+                    'code' => $subject->code,
+                ],
+                'changed_fields' => ['deleted_at'],
+            ];
+
+            $subject->delete();
+
+            $auditLogger->record(
+                'subject.archived',
+                $subject,
+                $auditProperties
+            );
+        });
 
         return to_route('subjects.index')
             ->with('success', 'Subject deleted successfully.');

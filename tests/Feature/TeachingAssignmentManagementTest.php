@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\AcademicClass;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -257,6 +258,14 @@ it('allows administrators to create teaching assignments', function (): void {
         'academic_class_id' => $records['academicClass']->id,
         'subject_id' => $records['subject']->id,
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'teaching_assignment.created')
+        ->where('auditable_type', $assignment->getMorphClass())
+        ->where('auditable_id', $assignment->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
 });
 
 it('prevents staff users from creating teaching assignments', function (): void {
@@ -295,6 +304,12 @@ it('rejects duplicate teacher class and subject assignments', function (): void 
     $response->assertSessionHasErrors('teacher_id');
 
     $this->assertDatabaseCount('teaching_assignments', 1);
+
+    expect(
+        AuditLog::query()
+            ->where('event', 'teaching_assignment.created')
+            ->exists()
+    )->toBeFalse();
 });
 
 it('rejects subjects that are not assigned to the selected academic class', function (): void {
@@ -428,6 +443,14 @@ it('allows administrators to update teaching assignments', function (): void {
         'academic_class_id' => $records['academicClass']->id,
         'subject_id' => $records['subject']->id,
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'teaching_assignment.updated')
+        ->where('auditable_type', $records['assignment']->getMorphClass())
+        ->where('auditable_id', $records['assignment']->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
 });
 
 it('allows an assignment to retain its existing teacher class and subject during an update', function (): void {
@@ -550,6 +573,20 @@ it('allows administrators to remove teaching assignments', function (): void {
     $this->assertDatabaseMissing('teaching_assignments', [
         'id' => $records['assignment']->id,
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'teaching_assignment.deleted')
+        ->where(
+            'auditable_type',
+            $records['assignment']->getMorphClass()
+        )
+        ->where(
+            'auditable_id',
+            $records['assignment']->getKey()
+        )
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
 });
 
 it('prevents staff users from removing teaching assignments', function (): void {

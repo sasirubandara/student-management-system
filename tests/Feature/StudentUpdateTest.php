@@ -61,6 +61,22 @@ it('updates student information successfully', function () {
         'phone' => '0779876543',
         'status' => 'inactive',
     ]);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'student.updated')
+        ->where('auditable_id', $student->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->auditable_type)
+        ->toBe($student->getMorphClass());
+
+    expect($auditLog->user_id)
+        ->toBe(auth()->id());
+
+    expect($auditLog->properties['changed_fields'])
+        ->toContain('first_name')
+        ->toContain('email')
+        ->toContain('status');
 });
 
 it('allows a student to retain their existing student number', function () {
@@ -170,5 +186,36 @@ it('requires mandatory fields when updating a student', function () {
         'last_name',
         'enrollment_date',
         'status',
+    ]);
+});
+
+it('does not create an audit record when student information is unchanged', function () {
+    $student = Student::create([
+        'student_number' => 'STU-EDIT-UNCHANGED',
+        'first_name' => 'Sarah',
+        'last_name' => 'Fernando',
+        'email' => 'sarah@example.test',
+        'phone' => '0771234567',
+        'date_of_birth' => '2005-06-15',
+        'enrollment_date' => '2026-01-15',
+        'status' => 'active',
+    ]);
+
+    $response = $this->put(route('students.update', $student), [
+        'student_number' => 'STU-EDIT-UNCHANGED',
+        'first_name' => 'Sarah',
+        'last_name' => 'Fernando',
+        'email' => 'sarah@example.test',
+        'phone' => '0771234567',
+        'date_of_birth' => '2005-06-15',
+        'enrollment_date' => '2026-01-15',
+        'status' => 'active',
+    ]);
+
+    $response->assertRedirect(route('students.show', $student));
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'student.updated',
+        'auditable_id' => $student->getKey(),
     ]);
 });

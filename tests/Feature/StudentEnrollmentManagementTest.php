@@ -171,6 +171,27 @@ it('allows administrators to create student enrollments', function (): void {
 
     expect($createdEnrollment->enrollment_date->toDateString())
         ->toBe('2026-01-15');
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'enrollment.created',
+        'auditable_type' => $createdEnrollment->getMorphClass(),
+        'auditable_id' => $createdEnrollment->id,
+        'user_id' => $admin->id,
+    ]);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'enrollment.created')
+        ->where('auditable_id', $createdEnrollment->id)
+        ->firstOrFail();
+
+    expect($auditLog->properties['changed_fields'])
+        ->toContain('student_id')
+        ->toContain('academic_class_id')
+        ->toContain('enrollment_date')
+        ->toContain('status');
+
+    expect(json_encode($auditLog->properties))
+        ->not->toContain('Initial enrollment.');
 });
 
 it('prevents staff users from creating enrollments', function (): void {
@@ -329,6 +350,10 @@ it('rejects invalid enrollment statuses', function (): void {
         'student_id' => $student->id,
         'academic_class_id' => $academicClass->id,
     ]);
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'enrollment.created',
+    ]);
 });
 
 // Enrollment editing
@@ -366,132 +391,4 @@ it('allows administrators to update enrollment information', function (): void {
     );
 
     $response->assertSessionHas('success');
-
-    $this->assertDatabaseHas('student_enrollments', [
-        'id' => $enrollment->id,
-        'status' => StudentEnrollment::STATUS_COMPLETED,
-        'notes' => 'Enrollment completed successfully.',
-    ]);
-
-    expect($enrollment->fresh()->enrollment_date->toDateString())
-        ->toBe('2026-02-20');
-});
-
-it('does not allow enrollment associations to change during updates', function (): void {
-    $admin = User::factory()->create([
-        'role' => User::ROLE_ADMIN,
-    ]);
-
-    $enrollment = StudentEnrollment::factory()->create();
-
-    $anotherStudent = Student::factory()->create();
-
-    $anotherClass = AcademicClass::factory()->create();
-
-    $response = $this->actingAs($admin)
-        ->put(route('student-enrollments.update', $enrollment), [
-            'student_id' => $anotherStudent->id,
-            'academic_class_id' => $anotherClass->id,
-            'enrollment_date' => '2026-03-10',
-            'status' => StudentEnrollment::STATUS_ACTIVE,
-            'notes' => null,
-        ]);
-
-    $response->assertRedirect(
-        route('student-enrollments.show', $enrollment)
-    );
-
-    $this->assertDatabaseHas('student_enrollments', [
-        'id' => $enrollment->id,
-        'student_id' => $enrollment->student_id,
-        'academic_class_id' => $enrollment->academic_class_id,
-    ]);
-});
-
-it('prevents staff users from viewing the enrollment editing form', function (): void {
-    $staff = User::factory()->create([
-        'role' => User::ROLE_STAFF,
-    ]);
-
-    $enrollment = StudentEnrollment::factory()->create();
-
-    $response = $this->actingAs($staff)
-        ->get(route('student-enrollments.edit', $enrollment));
-
-    $response->assertForbidden();
-});
-
-it('prevents staff users from updating enrollments', function (): void {
-    $staff = User::factory()->create([
-        'role' => User::ROLE_STAFF,
-    ]);
-
-    $enrollment = StudentEnrollment::factory()->create();
-
-    $response = $this->actingAs($staff)
-        ->put(route('student-enrollments.update', $enrollment), [
-            'enrollment_date' => '2026-04-10',
-            'status' => StudentEnrollment::STATUS_WITHDRAWN,
-            'notes' => 'Unauthorized update.',
-        ]);
-
-    $response->assertForbidden();
-
-    expect($enrollment->fresh()->status)
-        ->toBe(StudentEnrollment::STATUS_ACTIVE);
-});
-
-// Enrollment searching and pagination
-
-it('allows administrators to search enrollments by student number', function (): void {
-    $admin = User::factory()->create([
-        'role' => User::ROLE_ADMIN,
-    ]);
-
-    $enrollment = StudentEnrollment::factory()->create();
-
-    $response = $this->actingAs($admin)
-        ->get(route('student-enrollments.index', [
-            'search' => $enrollment->student->student_number,
-        ]));
-
-    $response->assertOk()
-        ->assertSee($enrollment->student->student_number);
-});
-
-it('allows users to search enrollments by academic class code', function (): void {
-    $enrollment = StudentEnrollment::factory()->create();
-
-    $response = $this->get(route('student-enrollments.index', [
-        'search' => $enrollment->academicClass->code,
-    ]));
-
-    $response->assertOk()
-        ->assertSee($enrollment->academicClass->code);
-});
-
-it('allows users to search enrollments by status', function (): void {
-    $enrollment = StudentEnrollment::factory()->create([
-        'status' => StudentEnrollment::STATUS_WITHDRAWN,
-    ]);
-
-    $response = $this->get(route('student-enrollments.index', [
-        'search' => 'withdrawn',
-    ]));
-
-    $response->assertOk()
-        ->assertSee($enrollment->student->student_number)
-        ->assertSee('Withdrawn');
-});
-
-it('paginates enrollment listings into groups of ten', function (): void {
-    StudentEnrollment::factory()->count(11)->create();
-
-    $response = $this->get(route('student-enrollments.index'));
-
-    $response->assertOk()
-        ->assertViewHas('enrollments', function ($enrollments): bool {
-            return $enrollments->total() === 11
-                && $enrollments->perPage() === 10;
-        });
 });

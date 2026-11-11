@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\Student;
 use App\Models\StudentDocument;
 use App\Models\User;
@@ -99,6 +100,28 @@ it('allows staff to upload student documents', function () {
 
     Storage::disk('student_documents')
         ->assertExists($document->file_path);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'student.document_uploaded')
+        ->where('auditable_type', $document->getMorphClass())
+        ->where('auditable_id', $document->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($staff->getKey());
+
+    expect($auditLog->properties['student_id'])
+        ->toBe($student->getKey());
+
+    expect($auditLog->properties['category'])->toBe('academic');
+    expect($auditLog->properties['mime_type'])->toBe('application/pdf');
+
+    expect(array_keys($auditLog->properties))
+        ->toEqualCanonicalizing([
+            'student_id',
+            'category',
+            'mime_type',
+            'file_size',
+        ]);
 });
 
 it('rejects unsupported document file types', function () {
@@ -131,6 +154,12 @@ it('rejects unsupported document file types', function () {
     expect(
         Storage::disk('student_documents')->allFiles()
     )->toBeEmpty();
+
+    expect(
+        AuditLog::query()
+            ->where('event', 'student.document_uploaded')
+            ->exists()
+    )->toBeFalse();
 });
 
 it('rejects documents larger than 5 MB', function () {
@@ -263,6 +292,17 @@ it('allows administrators to delete student documents', function () {
     ]);
 
     Storage::disk('student_documents')->assertMissing($path);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'student.document_deleted')
+        ->where('auditable_type', $document->getMorphClass())
+        ->where('auditable_id', $document->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
+
+    expect($auditLog->properties['student_id'])
+        ->toBe($student->getKey());
 });
 
 it('prevents staff from deleting student documents', function () {

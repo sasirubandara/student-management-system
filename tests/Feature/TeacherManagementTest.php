@@ -149,6 +149,13 @@ it('allows administrators to register teachers', function (): void {
 
     expect($teacher->employment_date->toDateString())
         ->toBe('2020-02-10');
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'teacher.created',
+        'auditable_type' => $teacher->getMorphClass(),
+        'auditable_id' => $teacher->getKey(),
+        'user_id' => $admin->id,
+    ]);
 });
 
 it('prevents staff users from registering teachers', function (): void {
@@ -359,6 +366,22 @@ it('allows administrators to update teacher information', function (): void {
 
     expect($teacher->fresh()->employment_date->toDateString())
         ->toBe('2021-03-15');
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'teacher.updated')
+        ->where('auditable_id', $teacher->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->auditable_type)
+        ->toBe($teacher->getMorphClass());
+
+    expect($auditLog->user_id)
+        ->toBe($admin->id);
+
+    expect($auditLog->properties['changed_fields'])
+        ->toContain('first_name')
+        ->toContain('teacher_number')
+        ->toContain('status');
 });
 
 it('allows a teacher to retain their existing teacher number during an update', function (): void {
@@ -457,6 +480,13 @@ it('allows administrators to archive teachers successfully', function (): void {
     $this->assertSoftDeleted('teachers', [
         'id' => $teacher->id,
     ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'teacher.archived',
+        'auditable_type' => $teacher->getMorphClass(),
+        'auditable_id' => $teacher->getKey(),
+        'user_id' => $admin->id,
+    ]);
 });
 
 it('prevents staff users from archiving teachers', function (): void {
@@ -546,6 +576,13 @@ it('allows administrators to restore archived teachers', function (): void {
         'id' => $teacher->id,
         'teacher_number' => $teacherNumber,
         'deleted_at' => null,
+    ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'teacher.restored',
+        'auditable_type' => $teacher->getMorphClass(),
+        'auditable_id' => $teacher->getKey(),
+        'user_id' => $admin->id,
     ]);
 });
 

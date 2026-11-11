@@ -155,6 +155,27 @@ it('allows administrators to create staff accounts securely', function (): void 
         ->and($createdUser->name)->toBe('New Staff Member')
         ->and($createdUser->role)->toBe(User::ROLE_STAFF)
         ->and(Hash::check('SecurePassword123!', $createdUser->password))->toBeTrue();
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'user.created',
+        'auditable_type' => $createdUser->getMorphClass(),
+        'auditable_id' => $createdUser->id,
+        'user_id' => $admin->id,
+    ]);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'user.created')
+        ->where('auditable_id', $createdUser->id)
+        ->firstOrFail();
+
+    expect($auditLog->properties)
+        ->toBe([
+            'role' => User::ROLE_STAFF,
+            'is_active' => true,
+        ]);
+
+    expect(json_encode($auditLog->properties))
+        ->not->toContain('SecurePassword123!');
 });
 
 it('prevents staff users from viewing the account creation form', function (): void {
@@ -236,6 +257,17 @@ it('allows administrators to promote staff users to administrators', function ()
         ->assertSessionHas('success');
 
     expect($staff->fresh()->role)->toBe(User::ROLE_ADMIN);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'user.role_updated')
+        ->where('auditable_id', $staff->id)
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->id)
+        ->and($auditLog->properties['changes']['role']['old'])
+        ->toBe(User::ROLE_STAFF)
+        ->and($auditLog->properties['changes']['role']['new'])
+        ->toBe(User::ROLE_ADMIN);
 });
 
 it('allows administrators to demote another administrator when another administrator remains', function (): void {
@@ -310,4 +342,9 @@ it('rejects invalid user roles', function (): void {
     $response->assertSessionHasErrors('role');
 
     expect($staff->fresh()->role)->toBe(User::ROLE_STAFF);
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'user.role_updated',
+        'auditable_id' => $staff->id,
+    ]);
 });

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -106,6 +107,18 @@ it('allows administrators to create subjects', function (): void {
         'code' => 'SUB-MATH-01',
         'status' => Subject::STATUS_ACTIVE,
     ]);
+
+    $createdSubject = Subject::query()
+        ->where('code', 'SUB-MATH-01')
+        ->firstOrFail();
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'subject.created')
+        ->where('auditable_type', $createdSubject->getMorphClass())
+        ->where('auditable_id', $createdSubject->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
 });
 
 it('prevents staff users from creating subjects', function (): void {
@@ -161,6 +174,12 @@ it('rejects invalid subject statuses during creation', function (): void {
     $this->assertDatabaseMissing('subjects', [
         'code' => 'SUB-INVALID-01',
     ]);
+
+    expect(
+        AuditLog::query()
+            ->where('event', 'subject.created')
+            ->exists()
+    )->toBeFalse();
 });
 
 // Subject editing
@@ -189,6 +208,17 @@ it('allows administrators to update subjects', function (): void {
         'code' => 'SUB-MATH-UPDATED',
         'status' => Subject::STATUS_INACTIVE,
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'subject.updated')
+        ->where('auditable_type', $subject->getMorphClass())
+        ->where('auditable_id', $subject->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
+
+    expect($auditLog->properties['changed_fields'])
+        ->toContain('name', 'code', 'status');
 });
 
 it('allows a subject to retain its existing code during an update', function (): void {
@@ -299,6 +329,14 @@ it('allows administrators to soft-delete subjects', function (): void {
         ->assertSessionHas('success');
 
     $this->assertSoftDeleted($subject);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'subject.archived')
+        ->where('auditable_type', $subject->getMorphClass())
+        ->where('auditable_id', $subject->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
 });
 
 it('prevents staff users from deleting subjects', function (): void {

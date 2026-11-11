@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Services\AuditLogger;
 use App\Services\StudentCsvImporter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -30,7 +31,8 @@ class StudentCsvController extends Controller
      */
     public function importCsv(
         Request $request,
-        StudentCsvImporter $importer
+        StudentCsvImporter $importer,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('create', Student::class);
 
@@ -44,6 +46,20 @@ class StudentCsvController extends Controller
         ]);
 
         $result = $importer->import($validated['file']);
+
+        // Record only the import summary, never CSV contents or row data.
+        $auditLogger->record(
+            'student.csv_import_processed',
+            properties: [
+                'imported_rows' => (int) ($result['imported'] ?? 0),
+                'failed_rows' => (int) ($result['failed'] ?? 0),
+                'has_errors' => (
+                    (int) ($result['failed'] ?? 0) > 0
+                    || ! empty($result['file_error'])
+                    || ! empty($result['errors'])
+                ),
+            ]
+        );
 
         $response = redirect()
             ->route('students.import.create')
@@ -64,8 +80,10 @@ class StudentCsvController extends Controller
      *
      * The current student search query is preserved.
      */
-    public function export(Request $request): StreamedResponse
-    {
+    public function export(
+        Request $request,
+        AuditLogger $auditLogger
+    ): StreamedResponse {
         Gate::authorize('viewAny', Student::class);
 
         $search = trim((string) $request->query('search', ''));
@@ -82,6 +100,18 @@ class StudentCsvController extends Controller
                 });
             })
             ->orderBy('id');
+
+        // Count the records included in this export without retrieving them.
+        $recordsCount = (clone $students)->count();
+
+        // Record that the export was requested.
+        $auditLogger->record(
+            'student.csv_export_requested',
+            properties: [
+                'records_count' => $recordsCount,
+                'search_filter_applied' => $search !== '',
+            ]
+        );
 
         $filename = 'students-' . now()->format('Y-m-d-His') . '.csv';
 
@@ -138,9 +168,14 @@ class StudentCsvController extends Controller
     /**
      * Download a blank CSV template.
      */
-    public function downloadTemplate(): StreamedResponse
-    {
+    public function downloadTemplate(
+        AuditLogger $auditLogger
+    ): StreamedResponse {
         Gate::authorize('create', Student::class);
+
+        $auditLogger->record(
+            'student.csv_template_download_requested'
+        );
 
         return response()->streamDownload(
             function (): void {

@@ -75,6 +75,13 @@ it('restores an archived student successfully', function () {
         'deleted_at' => null,
     ]);
 
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'student.restored',
+        'auditable_type' => $student->getMorphClass(),
+        'auditable_id' => $studentId,
+        'user_id' => $admin->id,
+    ]);
+
     $this->get(route('students.index'))
         ->assertOk()
         ->assertSee('STU-RESTORE-003');

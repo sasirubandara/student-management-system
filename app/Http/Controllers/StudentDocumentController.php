@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Models\StudentDocument;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -84,18 +85,19 @@ class StudentDocumentController extends Controller
      */
     public function destroy(
         Student $student,
-        StudentDocument $document
+        StudentDocument $document,
+        AuditLogger $auditLogger
     ) {
         // The existing StudentPolicy restricts this ability to administrators.
         Gate::authorize('delete', $student);
 
         $documentId = $document->getKey();
 
-        // Delete the database record inside a transaction.
-        // Lock the record to prevent concurrent deletion.
+        // Delete the database record and create its audit entry together.
         $filePath = DB::transaction(function () use (
             $student,
-            $documentId
+            $documentId,
+            $auditLogger
         ) {
             $scopedDocument = $student->documents()
                 ->whereKey($documentId)
@@ -115,7 +117,22 @@ class StudentDocumentController extends Controller
 
             $path = $scopedDocument->file_path;
 
+            // Preserve only non-sensitive metadata for the audit record.
+            $auditProperties = [
+                'student_id' => $student->getKey(),
+                'category' => $scopedDocument->category,
+                'mime_type' => $scopedDocument->mime_type,
+                'file_size' => $scopedDocument->file_size,
+                'changed_fields' => ['deleted'],
+            ];
+
             $scopedDocument->delete();
+
+            $auditLogger->record(
+                'student.document_deleted',
+                $scopedDocument,
+                $auditProperties
+            );
 
             return $path;
         });
@@ -127,15 +144,15 @@ class StudentDocumentController extends Controller
             if ($disk->exists($filePath)) {
                 $deleted = $disk->delete($filePath);
 
-                if (!$deleted && $disk->exists($filePath)) {
-                    throw new \RuntimeException(
+                if (! $deleted && $disk->exists($filePath)) {
+                    throw new RuntimeException(
                         'The private document file could not be deleted.'
                     );
                 }
             }
-        } catch (\Throwable $exception) {
-            // The database record is already deleted.
-            // Log the failure because the remaining file is still private.
+        } catch (Throwable $exception) {
+            // The database record and audit entry are already committed.
+            // Keep the remaining file private and log the cleanup failure.
             Log::warning('Student document file cleanup failed.', [
                 'student_document_id' => $documentId,
                 'student_id' => $student->getKey(),
@@ -158,8 +175,11 @@ class StudentDocumentController extends Controller
     /**
      * Store a document belonging to a student.
      */
-    public function store(Request $request, Student $student)
-    {
+    public function store(
+        Request $request,
+        Student $student,
+        AuditLogger $auditLogger
+    ) {
         // The user must be authorized to view this student.
         Gate::authorize('view', $student);
 
@@ -232,16 +252,17 @@ class StudentDocumentController extends Controller
                 );
             }
 
-            // Save document metadata in the database.
+            // Save document metadata and its audit entry together.
             DB::transaction(function () use (
                 $student,
                 $request,
                 $validated,
                 $file,
                 $storedPath,
-                $mimeType
-            ) {
-                $student->documents()->create([
+                $mimeType,
+                $auditLogger
+            ): void {
+                $document = $student->documents()->create([
                     'uploaded_by' => $request->user()->getKey(),
 
                     'title' => $validated['title'],
@@ -258,9 +279,20 @@ class StudentDocumentController extends Controller
 
                     'description' => $validated['description'] ?? null,
                 ]);
+
+                $auditLogger->record(
+                    'student.document_uploaded',
+                    $document,
+                    [
+                        'student_id' => $student->getKey(),
+                        'category' => $document->category,
+                        'mime_type' => $document->mime_type,
+                        'file_size' => $document->file_size,
+                    ]
+                );
             });
         } catch (Throwable $exception) {
-            // Remove the stored file if saving its database record fails.
+            // Remove the stored file if metadata or audit insertion fails.
             if (is_string($storedPath)) {
                 Storage::disk('student_documents')->delete($storedPath);
             }

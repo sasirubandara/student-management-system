@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,8 +21,10 @@ class AuthController extends Controller
     /**
      * Authenticate the user.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
@@ -33,6 +36,9 @@ class AuthController extends Controller
         )) {
             // Regenerate the session to prevent session fixation.
             $request->session()->regenerate();
+
+            // Record successful authentication.
+            $auditLogger->record('auth.login_succeeded');
 
             return redirect()->intended(
                 route('dashboard')
@@ -49,8 +55,16 @@ class AuthController extends Controller
     /**
      * Log out the authenticated user.
      */
-    public function destroy(Request $request): RedirectResponse
-    {
+    public function destroy(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
+        // Record the logout before clearing the authenticated session.
+        $auditLogger->record(
+            'auth.logged_out',
+            actor: $request->user()
+        );
+
         Auth::logout();
 
         $request->session()->invalidate();

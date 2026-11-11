@@ -312,6 +312,13 @@ it('allows administrators to create examinations', function (): void {
 
     expect($examination)->not->toBeNull()
         ->and($examination->created_by)->toBe($context['admin']->id);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'examination.created',
+        'auditable_type' => $examination->getMorphClass(),
+        'auditable_id' => $examination->id,
+        'user_id' => $context['admin']->id,
+    ]);
 });
 
 it('allows staff users to create examinations', function (): void {
@@ -332,6 +339,17 @@ it('allows staff users to create examinations', function (): void {
     $this->assertDatabaseHas('examinations', [
         'title' => 'Staff Created Examination',
         'created_by' => $context['staff']->id,
+    ]);
+
+    $examination = Examination::query()
+        ->where('title', 'Staff Created Examination')
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'examination.created',
+        'auditable_type' => $examination->getMorphClass(),
+        'auditable_id' => $examination->id,
+        'user_id' => $context['staff']->id,
     ]);
 });
 
@@ -520,6 +538,16 @@ it('allows administrators to update examination information', function (): void 
         'id' => $examination->id,
         'title' => 'Updated Examination Title',
     ]);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'examination.updated')
+        ->where('auditable_id', $examination->id)
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($context['admin']->id)
+        ->and($auditLog->properties['changed_fields'])
+        ->toContain('title')
+        ->toContain('exam_type');
 });
 
 it('prevents duplicate examination details during updates', function (): void {
@@ -624,6 +652,19 @@ it('recalculates existing grades when maximum marks change', function (): void {
     $response->assertRedirect();
 
     expect($result->fresh()->grade)->toBe('A');
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'examination.updated')
+        ->where('auditable_id', $examination->id)
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($context['admin']->id)
+        ->and($auditLog->properties['changes']['maximum_marks']['old'])
+        ->toBe('100.00')
+        ->and((float) $auditLog->properties['changes']['maximum_marks']['new'])
+        ->toBe(90.0)
+        ->and($auditLog->properties['grades_recalculated'])
+        ->toBe(1);
 });
 
 /*
@@ -644,6 +685,13 @@ it('allows administrators to delete examinations without results', function (): 
 
     $this->assertDatabaseMissing('examinations', [
         'id' => $examination->id,
+    ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'examination.deleted',
+        'auditable_type' => $examination->getMorphClass(),
+        'auditable_id' => $examination->id,
+        'user_id' => $context['admin']->id,
     ]);
 });
 
@@ -729,6 +777,30 @@ it('allows administrators to record results for multiple students', function ():
         'marks_obtained' => '65.00',
         'grade' => 'C',
     ]);
+
+    $results = $examination->results()->get();
+
+    expect($results)->toHaveCount(2);
+
+    foreach ($results as $result) {
+        $this->assertDatabaseHas('audit_logs', [
+            'event' => 'examination.result_created',
+            'auditable_type' => $result->getMorphClass(),
+            'auditable_id' => $result->id,
+            'user_id' => $context['admin']->id,
+        ]);
+
+        $auditLog = \App\Models\AuditLog::query()
+            ->where('event', 'examination.result_created')
+            ->where('auditable_id', $result->id)
+            ->firstOrFail();
+
+        expect($auditLog->properties['examination_id'])
+            ->toBe($examination->id);
+
+        expect($auditLog->properties['values'])
+            ->toHaveKeys(['marks_obtained', 'grade']);
+    }
 });
 
 it('allows staff users to record examination results', function (): void {
@@ -760,7 +832,7 @@ it('updates existing examination results instead of creating duplicates', functi
 
     $examination = makeExaminationManagementExamination($context);
 
-    makeExaminationManagementResult(
+    $result = makeExaminationManagementResult(
         $examination,
         $context['enrollment']
     );
@@ -785,6 +857,17 @@ it('updates existing examination results instead of creating duplicates', functi
         'marks_obtained' => '95.00',
         'grade' => 'A',
     ]);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'examination.result_updated')
+        ->where('auditable_id', $result->id)
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($context['admin']->id)
+        ->and((float) $auditLog->properties['changes']['marks_obtained']['old'])
+        ->toBe(75.0)
+        ->and((float) $auditLog->properties['changes']['marks_obtained']['new'])
+        ->toBe(95.0);
 });
 
 it('calculates grades using the configured grading scale', function (
@@ -833,6 +916,10 @@ it('rejects negative examination marks', function (): void {
         ]);
 
     $response->assertSessionHasErrors('results.0.marks_obtained');
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'examination.result_created',
+    ]);
 });
 
 it('rejects marks greater than maximum marks', function (): void {
@@ -1077,6 +1164,13 @@ it('allows administrators to remove individual results', function (): void {
 
     $this->assertDatabaseMissing('examination_results', [
         'id' => $result->id,
+    ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'examination.result_deleted',
+        'auditable_type' => $result->getMorphClass(),
+        'auditable_id' => $result->id,
+        'user_id' => $context['admin']->id,
     ]);
 });
 

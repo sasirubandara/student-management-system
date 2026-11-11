@@ -30,6 +30,13 @@ it('authenticates a user with valid credentials and redirects to the dashboard',
     $response->assertRedirect(route('dashboard'));
 
     $this->assertAuthenticatedAs($user);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'auth.login_succeeded',
+        'user_id' => $user->id,
+        'auditable_type' => null,
+        'auditable_id' => null,
+    ]);
 });
 
 it('rejects invalid login credentials', function () {
@@ -43,6 +50,10 @@ it('rejects invalid login credentials', function () {
     $response->assertSessionHasErrors('email');
 
     $this->assertGuest();
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'auth.login_succeeded',
+    ]);
 });
 
 it('redirects unauthenticated users from student management pages', function () {
@@ -69,6 +80,13 @@ it('logs out an authenticated user successfully', function () {
         );
 
     $this->assertGuest();
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'auth.logged_out',
+        'user_id' => $user->id,
+        'auditable_type' => null,
+        'auditable_id' => null,
+    ]);
 });
 
 it('displays the authenticated user navigation and logout form', function () {

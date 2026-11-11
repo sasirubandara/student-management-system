@@ -57,6 +57,15 @@ it('allows administrators to deactivate staff accounts', function (): void {
         );
 
     expect($staff->fresh()->is_active)->toBeFalse();
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'user.status_updated')
+        ->where('auditable_id', $staff->id)
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->id)
+        ->and($auditLog->properties['changes']['is_active']['old'])->toBeTrue()
+        ->and($auditLog->properties['changes']['is_active']['new'])->toBeFalse();
 });
 
 it('allows administrators to reactivate inactive accounts', function (): void {
@@ -81,6 +90,15 @@ it('allows administrators to reactivate inactive accounts', function (): void {
         );
 
     expect($staff->fresh()->is_active)->toBeTrue();
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'user.status_updated')
+        ->where('auditable_id', $staff->id)
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->id)
+        ->and($auditLog->properties['changes']['is_active']['old'])->toBeFalse()
+        ->and($auditLog->properties['changes']['is_active']['new'])->toBeTrue();
 });
 
 it('prevents staff users from changing account statuses', function (): void {
@@ -117,6 +135,11 @@ it('prevents administrators from deactivating their own accounts', function (): 
     $response->assertSessionHasErrors('is_active');
 
     expect($admin->fresh()->is_active)->toBeTrue();
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'user.status_updated',
+        'auditable_id' => $admin->id,
+    ]);
 });
 
 it('preserves another active administrator when deactivating an administrator account', function (): void {

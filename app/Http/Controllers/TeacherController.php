@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Teacher;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -56,13 +58,28 @@ class TeacherController extends Controller
     /**
      * Restore an archived teacher.
      */
-    public function restore(Teacher $teacher): RedirectResponse
-    {
+    public function restore(
+        Teacher $teacher,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('restore', $teacher);
 
         abort_unless($teacher->trashed(), 404);
 
-        $teacher->restore();
+        DB::transaction(function () use (
+            $teacher,
+            $auditLogger
+        ): void {
+            $teacher->restore();
+
+            $auditLogger->record(
+                'teacher.restored',
+                $teacher,
+                [
+                    'changed_fields' => ['deleted_at'],
+                ]
+            );
+        });
 
         return to_route('teachers.show', $teacher)
             ->with('success', 'Teacher restored successfully.');
@@ -93,7 +110,8 @@ class TeacherController extends Controller
      */
     public function update(
         Request $request,
-        Teacher $teacher
+        Teacher $teacher,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('update', $teacher);
 
@@ -121,7 +139,29 @@ class TeacherController extends Controller
             ],
         ]);
 
-        $teacher->update($validated);
+        DB::transaction(function () use (
+            $teacher,
+            $validated,
+            $auditLogger
+        ): void {
+            $teacher->fill($validated);
+
+            $changedFields = array_keys($teacher->getDirty());
+
+            if ($changedFields === []) {
+                return;
+            }
+
+            $teacher->save();
+
+            $auditLogger->record(
+                'teacher.updated',
+                $teacher,
+                [
+                    'changed_fields' => $changedFields,
+                ]
+            );
+        });
 
         return to_route('teachers.show', $teacher)
             ->with('success', 'Teacher information updated successfully.');
@@ -130,11 +170,26 @@ class TeacherController extends Controller
     /**
      * Archive a teacher using soft deletion.
      */
-    public function destroy(Teacher $teacher): RedirectResponse
-    {
+    public function destroy(
+        Teacher $teacher,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('delete', $teacher);
 
-        $teacher->delete();
+        DB::transaction(function () use (
+            $teacher,
+            $auditLogger
+        ): void {
+            $teacher->delete();
+
+            $auditLogger->record(
+                'teacher.archived',
+                $teacher,
+                [
+                    'changed_fields' => ['deleted_at'],
+                ]
+            );
+        });
 
         return to_route('teachers.index')
             ->with('success', 'Teacher archived successfully.');
@@ -153,8 +208,10 @@ class TeacherController extends Controller
     /**
      * Store a newly registered teacher.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', Teacher::class);
 
         $validated = $request->validate([
@@ -180,7 +237,22 @@ class TeacherController extends Controller
             ],
         ]);
 
-        $teacher = Teacher::create($validated);
+        $teacher = DB::transaction(function () use (
+            $validated,
+            $auditLogger
+        ): Teacher {
+            $teacher = Teacher::create($validated);
+
+            $auditLogger->record(
+                'teacher.created',
+                $teacher,
+                [
+                    'changed_fields' => array_keys($validated),
+                ]
+            );
+
+            return $teacher;
+        });
 
         return to_route('teachers.show', $teacher)
             ->with('success', 'Teacher registered successfully.');

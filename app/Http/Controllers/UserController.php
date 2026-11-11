@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,8 +53,10 @@ class UserController extends Controller
     /**
      * Create a new staff account.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', User::class);
 
         $validated = $request->validate([
@@ -62,13 +65,27 @@ class UserController extends Controller
             'password' => ['required', 'string', 'min:12', 'confirmed'],
         ]);
 
-        User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'role' => User::ROLE_STAFF,
-            'is_active' => true,
-        ]);
+        DB::transaction(function () use (
+            $validated,
+            $auditLogger
+        ): void {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'role' => User::ROLE_STAFF,
+                'is_active' => true,
+            ]);
+
+            $auditLogger->record(
+                'user.created',
+                $user,
+                [
+                    'role' => User::ROLE_STAFF,
+                    'is_active' => true,
+                ]
+            );
+        });
 
         return to_route('users.index')
             ->with('success', 'Staff account created successfully.');
@@ -77,8 +94,11 @@ class UserController extends Controller
     /**
      * Update a user's role while preserving at least one active administrator.
      */
-    public function updateRole(Request $request, User $user): RedirectResponse
-    {
+    public function updateRole(
+        Request $request,
+        User $user,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('updateRole', $user);
 
         $validated = $request->validate([
@@ -92,7 +112,12 @@ class UserController extends Controller
             ],
         ]);
 
-        DB::transaction(function () use ($request, $user, $validated): void {
+        DB::transaction(function () use (
+            $request,
+            $user,
+            $validated,
+            $auditLogger
+        ): void {
 
             // Lock administrator records to serialize administrative changes.
             $administratorRecords = User::query()
@@ -133,9 +158,26 @@ class UserController extends Controller
                 ]);
             }
 
-            $targetUser->update([
-                'role' => $validated['role'],
-            ]);
+            $previousRole = $targetUser->role;
+
+            if ($previousRole !== $validated['role']) {
+                $targetUser->update([
+                    'role' => $validated['role'],
+                ]);
+
+                $auditLogger->record(
+                    'user.role_updated',
+                    $targetUser,
+                    [
+                        'changes' => [
+                            'role' => [
+                                'old' => $previousRole,
+                                'new' => $validated['role'],
+                            ],
+                        ],
+                    ]
+                );
+            }
 
         }, 3);
 
@@ -149,8 +191,11 @@ class UserController extends Controller
     /**
      * Activate or deactivate a user account.
      */
-    public function updateStatus(Request $request, User $user): RedirectResponse
-    {
+    public function updateStatus(
+        Request $request,
+        User $user,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('updateStatus', $user);
 
         $validated = $request->validate([
@@ -159,7 +204,12 @@ class UserController extends Controller
 
         $isActive = (bool) $validated['is_active'];
 
-        DB::transaction(function () use ($request, $user, $isActive): void {
+        DB::transaction(function () use (
+            $request,
+            $user,
+            $isActive,
+            $auditLogger
+        ): void {
 
             // Lock administrator records to protect administrator access.
             $administratorRecords = User::query()
@@ -211,9 +261,26 @@ class UserController extends Controller
                 ]);
             }
 
-            $targetUser->update([
-                'is_active' => $isActive,
-            ]);
+            $previousStatus = $targetUser->isActive();
+
+            if ($previousStatus !== $isActive) {
+                $targetUser->update([
+                    'is_active' => $isActive,
+                ]);
+
+                $auditLogger->record(
+                    'user.status_updated',
+                    $targetUser,
+                    [
+                        'changes' => [
+                            'is_active' => [
+                                'old' => $previousStatus,
+                                'new' => $isActive,
+                            ],
+                        ],
+                    ]
+                );
+            }
 
         }, 3);
 

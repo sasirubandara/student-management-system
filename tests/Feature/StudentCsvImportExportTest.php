@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -63,6 +64,15 @@ it('downloads the student CSV import template', function (): void {
         ->toStartWith(
             'student_number,first_name,last_name,email,phone,date_of_birth,enrollment_date,status'
         );
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'student.csv_template_download_requested')
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($staff->getKey());
+
+    expect($auditLog->auditable_type)->toBeNull();
+    expect($auditLog->auditable_id)->toBeNull();
 });
 
 // Student CSV import
@@ -101,6 +111,19 @@ it('imports valid student records from a CSV file', function (): void {
         'first_name' => 'Sarah',
         'status' => Student::STATUS_INACTIVE,
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'student.csv_import_processed')
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($staff->getKey());
+
+    expect($auditLog->properties['imported_rows'])->toBe(2);
+    expect($auditLog->properties['failed_rows'])->toBe(0);
+    expect($auditLog->properties['has_errors'])->toBeFalse();
+
+    expect($auditLog->auditable_type)->toBeNull();
+    expect($auditLog->auditable_id)->toBeNull();
 });
 
 it('defaults an empty student status to active during CSV import', function (): void {
@@ -191,6 +214,16 @@ it('imports valid CSV rows and reports invalid and duplicate rows', function ():
     $this->assertDatabaseMissing('students', [
         'student_number' => 'STU-CSV-BAD',
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'student.csv_import_processed')
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($staff->getKey());
+
+    expect($auditLog->properties['imported_rows'])->toBe(1);
+    expect($auditLog->properties['failed_rows'])->toBe(2);
+    expect($auditLog->properties['has_errors'])->toBeTrue();
 });
 
 it('prevents importing a student number belonging to an archived student', function (): void {
@@ -333,6 +366,15 @@ it('allows staff users to export active student records', function (): void {
     expect($content)
         ->toContain('student_number')
         ->toContain('STU-CSV-EXPORT-001');
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'student.csv_export_requested')
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($staff->getKey());
+
+    expect($auditLog->properties['records_count'])->toBe(1);
+    expect($auditLog->properties['search_filter_applied'])->toBeFalse();
 });
 
 it('exports only students matching the current search query', function (): void {
@@ -361,6 +403,18 @@ it('exports only students matching the current search query', function (): void 
     expect($content)
         ->toContain('STU-CSV-MATCH-001')
         ->not->toContain('STU-CSV-NOMATCH-002');
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'student.csv_export_requested')
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($staff->getKey());
+
+    expect($auditLog->properties['records_count'])->toBe(1);
+    expect($auditLog->properties['search_filter_applied'])->toBeTrue();
+
+    expect(json_encode($auditLog->properties))
+        ->not->toContain('SearchMatch');
 });
 
 it('excludes archived students from CSV exports', function (): void {

@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\AcademicClass;
 use App\Models\Subject;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -54,8 +56,10 @@ class AcademicClassController extends Controller
     /**
      * Store a newly created class.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', AcademicClass::class);
 
         $validated = $request->validate([
@@ -73,7 +77,22 @@ class AcademicClassController extends Controller
             ],
         ]);
 
-        AcademicClass::create($validated);
+        $academicClass = DB::transaction(function () use (
+            $validated,
+            $auditLogger
+        ): AcademicClass {
+            $academicClass = AcademicClass::create($validated);
+
+            $auditLogger->record(
+                'academic_class.created',
+                $academicClass,
+                [
+                    'changed_fields' => array_keys($validated),
+                ]
+            );
+
+            return $academicClass;
+        });
 
         return to_route('academic-classes.index')
             ->with('success', 'Academic class created successfully.');
@@ -120,7 +139,8 @@ class AcademicClassController extends Controller
      */
     public function update(
         Request $request,
-        AcademicClass $academicClass
+        AcademicClass $academicClass,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('update', $academicClass);
 
@@ -147,7 +167,29 @@ class AcademicClassController extends Controller
             ],
         ]);
 
-        $academicClass->update($validated);
+        DB::transaction(function () use (
+            $academicClass,
+            $validated,
+            $auditLogger
+        ): void {
+            $academicClass->fill($validated);
+
+            $changedFields = array_keys($academicClass->getDirty());
+
+            if ($changedFields === []) {
+                return;
+            }
+
+            $academicClass->save();
+
+            $auditLogger->record(
+                'academic_class.updated',
+                $academicClass,
+                [
+                    'changed_fields' => $changedFields,
+                ]
+            );
+        });
 
         return to_route('academic-classes.show', $academicClass)
             ->with('success', 'Academic class updated successfully.');
@@ -156,11 +198,33 @@ class AcademicClassController extends Controller
     /**
      * Soft-delete an academic class.
      */
-    public function destroy(AcademicClass $academicClass): RedirectResponse
-    {
+    public function destroy(
+        AcademicClass $academicClass,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('delete', $academicClass);
 
-        $academicClass->delete();
+        DB::transaction(function () use (
+            $academicClass,
+            $auditLogger
+        ): void {
+            $auditProperties = [
+                'record' => [
+                    'name' => $academicClass->name,
+                    'code' => $academicClass->code,
+                    'academic_year' => $academicClass->academic_year,
+                ],
+                'changed_fields' => ['deleted_at'],
+            ];
+
+            $academicClass->delete();
+
+            $auditLogger->record(
+                'academic_class.archived',
+                $academicClass,
+                $auditProperties
+            );
+        });
 
         return to_route('academic-classes.index')
             ->with('success', 'Academic class deleted successfully.');

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\AcademicClass;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -111,6 +112,18 @@ it('allows administrators to create academic classes', function (): void {
         'academic_year' => 2026,
         'status' => AcademicClass::STATUS_ACTIVE,
     ]);
+
+    $createdClass = AcademicClass::query()
+        ->where('code', 'CLS-2001')
+        ->firstOrFail();
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'academic_class.created')
+        ->where('auditable_type', $createdClass->getMorphClass())
+        ->where('auditable_id', $createdClass->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
 });
 
 it('prevents staff users from creating academic classes', function (): void {
@@ -150,6 +163,12 @@ it('rejects duplicate academic class codes', function (): void {
         ]);
 
     $response->assertSessionHasErrors('code');
+
+    expect(
+        AuditLog::query()
+            ->where('event', 'academic_class.created')
+            ->exists()
+    )->toBeFalse();
 });
 
 // Class editing
@@ -182,6 +201,17 @@ it('allows administrators to update academic classes', function (): void {
         'academic_year' => 2027,
         'status' => AcademicClass::STATUS_INACTIVE,
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'academic_class.updated')
+        ->where('auditable_type', $academicClass->getMorphClass())
+        ->where('auditable_id', $academicClass->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
+
+    expect($auditLog->properties['changed_fields'])
+        ->toContain('name', 'code', 'academic_year', 'status');
 });
 
 it('allows a class to retain its existing code when updating', function (): void {
@@ -262,6 +292,14 @@ it('allows administrators to soft-delete academic classes', function (): void {
         ->assertSessionHas('success');
 
     $this->assertSoftDeleted($academicClass);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'academic_class.archived')
+        ->where('auditable_type', $academicClass->getMorphClass())
+        ->where('auditable_id', $academicClass->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
 });
 
 it('prevents staff users from deleting academic classes', function (): void {

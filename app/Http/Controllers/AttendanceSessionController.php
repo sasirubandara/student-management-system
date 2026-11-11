@@ -9,9 +9,11 @@ use App\Models\StudentEnrollment;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -107,8 +109,10 @@ class AttendanceSessionController extends Controller
     /**
      * Store a new attendance session.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', AttendanceSession::class);
 
         $validated = $request->validate([
@@ -164,11 +168,31 @@ class AttendanceSessionController extends Controller
             ]);
         }
 
-        $attendanceSession = AttendanceSession::create([
-            'teaching_assignment_id' => $validated['teaching_assignment_id'],
-            'attendance_date' => $validated['attendance_date'],
-            'created_by' => $request->user()->id,
-        ]);
+        $attendanceSession = DB::transaction(function () use (
+            $validated,
+            $request,
+            $auditLogger
+        ): AttendanceSession {
+            $attendanceSession = AttendanceSession::create([
+                'teaching_assignment_id' => $validated['teaching_assignment_id'],
+                'attendance_date' => $validated['attendance_date'],
+                'created_by' => $request->user()->id,
+            ]);
+
+            $auditLogger->record(
+                'attendance.session_created',
+                $attendanceSession,
+                [
+                    'changed_fields' => [
+                        'teaching_assignment_id',
+                        'attendance_date',
+                        'created_by',
+                    ],
+                ]
+            );
+
+            return $attendanceSession;
+        });
 
         return to_route('attendance-sessions.show', $attendanceSession)
             ->with('success', 'Attendance session created successfully.');
@@ -217,11 +241,38 @@ class AttendanceSessionController extends Controller
      * Remove an attendance session that has no attendance records.
      */
     public function destroy(
-        AttendanceSession $attendanceSession
+        AttendanceSession $attendanceSession,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('delete', $attendanceSession);
 
-        if ($attendanceSession->studentAttendances()->exists()) {
+        $deleted = DB::transaction(function () use (
+            $attendanceSession,
+            $auditLogger
+        ): bool {
+            $lockedSession = AttendanceSession::query()
+                ->whereKey($attendanceSession->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedSession->studentAttendances()->exists()) {
+                return false;
+            }
+
+            $lockedSession->delete();
+
+            $auditLogger->record(
+                'attendance.session_deleted',
+                $lockedSession,
+                [
+                    'changed_fields' => ['deleted'],
+                ]
+            );
+
+            return true;
+        });
+
+        if (! $deleted) {
             return to_route('attendance-sessions.show', $attendanceSession)
                 ->withErrors([
                     'attendance_session' =>
@@ -229,8 +280,6 @@ class AttendanceSessionController extends Controller
                         . 'student attendance records. Attendance history must be preserved.',
                 ]);
         }
-
-        $attendanceSession->delete();
 
         return to_route('attendance-sessions.index')
             ->with('success', 'Attendance session removed successfully.');

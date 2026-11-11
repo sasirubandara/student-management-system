@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\AcademicClass;
 use App\Models\Subject;
 use App\Models\User;
@@ -102,6 +103,25 @@ it('allows administrators to assign multiple subjects to an academic class', fun
     }
 
     $this->assertDatabaseCount('academic_class_subject', 3);
+
+    $auditLogs = AuditLog::query()
+        ->where('event', 'academic_class.subject_assigned')
+        ->where('auditable_type', $academicClass->getMorphClass())
+        ->where('auditable_id', $academicClass->getKey())
+        ->get();
+
+    expect($auditLogs)->toHaveCount(3);
+
+    $auditedSubjectIds = $auditLogs
+        ->map(fn (AuditLog $auditLog) => $auditLog->properties['subject_id'])
+        ->all();
+
+    expect($auditedSubjectIds)
+        ->toEqualCanonicalizing($subjects->modelKeys());
+
+    foreach ($auditLogs as $auditLog) {
+        expect($auditLog->user_id)->toBe($admin->getKey());
+    }
 });
 
 it('allows a subject to be assigned to multiple academic classes', function (): void {
@@ -200,6 +220,13 @@ it('rejects inactive subjects during assignment', function (): void {
         'academic_class_id' => $academicClass->id,
         'subject_id' => $subject->id,
     ]);
+
+    expect(
+        AuditLog::query()
+            ->where('event', 'academic_class.subject_assigned')
+            ->where('auditable_id', $academicClass->getKey())
+            ->exists()
+    )->toBeFalse();
 });
 
 it('rejects archived subjects during assignment', function (): void {
@@ -292,6 +319,17 @@ it('allows administrators to remove a subject from an academic class', function 
         'academic_class_id' => $academicClass->id,
         'subject_id' => $subject->id,
     ]);
+
+    $auditLog = AuditLog::query()
+        ->where('event', 'academic_class.subject_removed')
+        ->where('auditable_type', $academicClass->getMorphClass())
+        ->where('auditable_id', $academicClass->getKey())
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($admin->getKey());
+
+    expect($auditLog->properties['subject_id'])
+        ->toBe($subject->getKey());
 });
 
 it('prevents staff users from removing subject assignments', function (): void {
