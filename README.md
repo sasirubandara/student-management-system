@@ -185,6 +185,22 @@ The application calculates grades on the server using the grading scale configur
 
 Foreign-key restrictions protect examinations, student enrollments, and historical examination results against accidental deletion of related records.
 
+### Academic Reports
+
+- Provide a searchable directory of student academic reports.
+- Display individual student information and complete enrollment history, including active, completed, and withdrawn enrollments.
+- Summarize each student's attendance records by status and display attendance history with class, subject, teacher, date, and remarks.
+- Display examination history, marks obtained, maximum marks, grades, and remarks for each student.
+- Provide attendance reports filterable by academic class, subject, and date range.
+- Summarize attendance records by **Present**, **Absent**, **Late**, and **Excused** across all matching sessions.
+- Provide examination reports filterable by academic class, subject, and date range.
+- Summarize examination counts, recorded results, and grade distributions across matching examinations.
+- Allow administrators to view archived students in the report directory and open their historical academic reports; staff users can view active student reports only.
+- Provide browser-based print layouts for student, attendance, and examination reports.
+- Keep reports read-only and reuse existing academic records without introducing additional database tables.
+
+Reports preserve historical context by displaying related archived classes, subjects, and teachers where those records are available. Attendance and examination report summaries are calculated across all records matching the selected filters, not only the current pagination page.
+
 ### Dashboard and Statistics
 
 - Provide a central dashboard for administrators and staff after authentication.
@@ -275,6 +291,8 @@ Administrators can:
 | Remove empty attendance sessions | Yes | No |
 | Remove individual attendance records | Yes | No |
 | View examinations | Yes | Yes |
+| View academic reports | Yes | Yes |
+| View archived student academic reports | Yes | No |
 | Create examinations | Yes | Yes |
 | Update examinations | Yes | Yes |
 | Remove examinations | Yes | No |
@@ -487,6 +505,12 @@ Run the dashboard and statistics feature tests:
 php artisan test tests/Feature/DashboardTest.php
 ```
 
+Run the academic reports feature tests:
+
+```bash
+php artisan test tests/Feature/AcademicReportsTest.php
+```
+
 Run the grade calculator unit tests:
 
 ```bash
@@ -569,7 +593,6 @@ Potential future academic functionality can be added as the application develops
 
 ### Advanced Features
 
-- Reports.
 - CSV import and export.
 - Audit logs.
 - Notifications.
@@ -626,11 +649,13 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, academic reports, authentication, role-based authorization, user management, and account activation have been implemented.
 
-The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, and a dashboard with academic and attendance summaries.
+The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
 The dashboard displays summary cards, enrollment and attendance status totals, upcoming examinations, and recent student, enrollment, and attendance records. Archived student and teacher counts are visible to administrators only.
+
+Academic reports include student enrollment, attendance, and examination history, as well as filtered attendance and examination summaries. Administrators can view archived students' historical academic reports, while staff users are restricted to active student reports.
 
 Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Historical academic records are preserved through database relationships and deletion restrictions.
 
