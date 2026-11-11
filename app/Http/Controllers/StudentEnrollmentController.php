@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\AcademicClass;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -77,8 +79,10 @@ class StudentEnrollmentController extends Controller
     /**
      * Store a new student enrollment.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', StudentEnrollment::class);
 
         $validated = $request->validate([
@@ -115,7 +119,27 @@ class StudentEnrollmentController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $enrollment = StudentEnrollment::create($validated);
+        $enrollment = DB::transaction(function () use (
+            $validated,
+            $auditLogger
+        ): StudentEnrollment {
+            $enrollment = StudentEnrollment::create($validated);
+
+            $auditLogger->record(
+                'enrollment.created',
+                $enrollment,
+                [
+                    'changed_fields' => [
+                        'student_id',
+                        'academic_class_id',
+                        'enrollment_date',
+                        'status',
+                    ],
+                ]
+            );
+
+            return $enrollment;
+        });
 
         return to_route('student-enrollments.show', $enrollment)
             ->with('success', 'Student enrollment created successfully.');
@@ -154,7 +178,8 @@ class StudentEnrollmentController extends Controller
      */
     public function update(
         Request $request,
-        StudentEnrollment $studentEnrollment
+        StudentEnrollment $studentEnrollment,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('update', $studentEnrollment);
 
@@ -173,7 +198,29 @@ class StudentEnrollmentController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
-        $studentEnrollment->update($validated);
+        DB::transaction(function () use (
+            $studentEnrollment,
+            $validated,
+            $auditLogger
+        ): void {
+            $studentEnrollment->fill($validated);
+
+            $changedFields = array_keys($studentEnrollment->getDirty());
+
+            if ($changedFields === []) {
+                return;
+            }
+
+            $studentEnrollment->save();
+
+            $auditLogger->record(
+                'enrollment.updated',
+                $studentEnrollment,
+                [
+                    'changed_fields' => $changedFields,
+                ]
+            );
+        });
 
         return to_route('student-enrollments.show', $studentEnrollment)
             ->with('success', 'Student enrollment updated successfully.');

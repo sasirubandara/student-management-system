@@ -51,6 +51,12 @@
             </a>
         @endcan
 
+        @can('viewAny', \App\Models\AuditLog::class)
+            <a href="{{ route('audit-logs.index') }}">
+                Audit Logs
+            </a>
+        @endcan
+
         @can('viewArchived', \App\Models\Student::class)
             <a href="{{ route('students.archived') }}">
                 Archived Students

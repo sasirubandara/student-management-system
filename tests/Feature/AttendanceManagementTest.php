@@ -294,6 +294,13 @@ it('allows administrators to create attendance sessions', function (): void {
 
     expect($session->fresh()->attendance_date->toDateString())
         ->toBe($attendanceDate);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'attendance.session_created',
+        'auditable_type' => $session->getMorphClass(),
+        'auditable_id' => $session->id,
+        'user_id' => $context['admin']->id,
+    ]);
 });
 
 it('allows staff users to create attendance sessions', function (): void {
@@ -310,6 +317,17 @@ it('allows staff users to create attendance sessions', function (): void {
     $this->assertDatabaseHas('attendance_sessions', [
         'teaching_assignment_id' => $context['teachingAssignment']->id,
         'created_by' => $context['staff']->id,
+    ]);
+
+    $session = AttendanceSession::query()
+        ->where('teaching_assignment_id', $context['teachingAssignment']->id)
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'attendance.session_created',
+        'auditable_type' => $session->getMorphClass(),
+        'auditable_id' => $session->id,
+        'user_id' => $context['staff']->id,
     ]);
 });
 
@@ -429,6 +447,13 @@ it('allows administrators to remove an empty attendance session', function (): v
     $this->assertDatabaseMissing('attendance_sessions', [
         'id' => $session->id,
     ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'attendance.session_deleted',
+        'auditable_type' => $session->getMorphClass(),
+        'auditable_id' => $session->id,
+        'user_id' => $context['admin']->id,
+    ]);
 });
 
 it('prevents staff users from removing attendance sessions', function (): void {
@@ -504,6 +529,26 @@ it('allows staff users to record attendance for active enrollments', function ()
         'status' => StudentAttendance::STATUS_PRESENT,
         'remarks' => 'Present for the lesson.',
     ]);
+
+    $attendance = StudentAttendance::query()
+        ->where('attendance_session_id', $session->id)
+        ->where('student_enrollment_id', $context['enrollment']->id)
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'attendance.record_created',
+        'auditable_type' => $attendance->getMorphClass(),
+        'auditable_id' => $attendance->id,
+        'user_id' => $context['staff']->id,
+    ]);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'attendance.record_created')
+        ->where('auditable_id', $attendance->id)
+        ->firstOrFail();
+
+    expect(json_encode($auditLog->properties))
+        ->not->toContain('Present for the lesson.');
 });
 
 it('allows administrators to record attendance for multiple students in one session', function (): void {
@@ -589,6 +634,20 @@ it('updates existing attendance records instead of creating duplicates', functio
         'status' => StudentAttendance::STATUS_ABSENT,
         'remarks' => 'Absence recorded.',
     ]);
+
+    $auditLog = \App\Models\AuditLog::query()
+        ->where('event', 'attendance.record_updated')
+        ->where('auditable_id', $attendance->id)
+        ->firstOrFail();
+
+    expect($auditLog->user_id)->toBe($context['staff']->id)
+        ->and($auditLog->properties['changes']['status']['old'])
+        ->toBe(StudentAttendance::STATUS_PRESENT)
+        ->and($auditLog->properties['changes']['status']['new'])
+        ->toBe(StudentAttendance::STATUS_ABSENT);
+
+    expect(json_encode($auditLog->properties))
+        ->not->toContain('Absence recorded.');
 });
 
 it('rejects attendance for enrollments belonging to another academic class', function (): void {
@@ -749,6 +808,10 @@ it('rejects invalid attendance statuses', function (): void {
     $response->assertSessionHasErrors('attendances.0.status');
 
     $this->assertDatabaseCount('student_attendances', 0);
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'attendance.record_created',
+    ]);
 });
 
 it('requires at least one attendance record when saving attendance', function (): void {
@@ -857,6 +920,13 @@ it('allows administrators to remove individual attendance records', function ():
 
     $this->assertDatabaseMissing('student_attendances', [
         'id' => $attendance->id,
+    ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'attendance.record_deleted',
+        'auditable_type' => $attendance->getMorphClass(),
+        'auditable_id' => $attendance->id,
+        'user_id' => $context['admin']->id,
     ]);
 });
 

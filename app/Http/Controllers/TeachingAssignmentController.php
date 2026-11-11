@@ -6,10 +6,12 @@ use App\Models\AcademicClass;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -89,8 +91,10 @@ class TeachingAssignmentController extends Controller
     /**
      * Store a new teaching assignment.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', TeachingAssignment::class);
 
         $validated = $request->validate([
@@ -127,7 +131,24 @@ class TeachingAssignmentController extends Controller
             ],
         ]);
 
-        $assignment = TeachingAssignment::create($validated);
+        $assignment = DB::transaction(function () use (
+            $validated,
+            $auditLogger
+        ): TeachingAssignment {
+            $assignment = TeachingAssignment::create($validated);
+
+            $auditLogger->record(
+                'teaching_assignment.created',
+                $assignment,
+                [
+                    'teacher_id' => $assignment->teacher_id,
+                    'academic_class_id' => $assignment->academic_class_id,
+                    'subject_id' => $assignment->subject_id,
+                ]
+            );
+
+            return $assignment;
+        });
 
         return to_route('teaching-assignments.show', $assignment)
             ->with('success', 'Teaching assignment created successfully.');
@@ -192,7 +213,8 @@ class TeachingAssignmentController extends Controller
      */
     public function update(
         Request $request,
-        TeachingAssignment $teachingAssignment
+        TeachingAssignment $teachingAssignment,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('update', $teachingAssignment);
 
@@ -231,7 +253,39 @@ class TeachingAssignmentController extends Controller
             ],
         ]);
 
-        $teachingAssignment->update($validated);
+        DB::transaction(function () use (
+            $teachingAssignment,
+            $validated,
+            $auditLogger
+        ): void {
+            $teachingAssignment->fill($validated);
+
+            $changedFields = array_keys($teachingAssignment->getDirty());
+
+            if ($changedFields === []) {
+                return;
+            }
+
+            $changes = [];
+
+            foreach ($changedFields as $field) {
+                $changes[$field] = [
+                    'old' => $teachingAssignment->getOriginal($field),
+                    'new' => $teachingAssignment->{$field},
+                ];
+            }
+
+            $teachingAssignment->save();
+
+            $auditLogger->record(
+                'teaching_assignment.updated',
+                $teachingAssignment,
+                [
+                    'changed_fields' => $changedFields,
+                    'changes' => $changes,
+                ]
+            );
+        });
 
         return to_route('teaching-assignments.show', $teachingAssignment)
             ->with('success', 'Teaching assignment updated successfully.');
@@ -241,11 +295,35 @@ class TeachingAssignmentController extends Controller
      * Remove a teaching assignment.
      */
     public function destroy(
-        TeachingAssignment $teachingAssignment
+        TeachingAssignment $teachingAssignment,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('delete', $teachingAssignment);
 
-        $teachingAssignment->delete();
+        DB::transaction(function () use (
+            $teachingAssignment,
+            $auditLogger
+        ): void {
+            $lockedAssignment = TeachingAssignment::query()
+                ->whereKey($teachingAssignment->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $auditProperties = [
+                'teacher_id' => $lockedAssignment->teacher_id,
+                'academic_class_id' => $lockedAssignment->academic_class_id,
+                'subject_id' => $lockedAssignment->subject_id,
+                'changed_fields' => ['deleted'],
+            ];
+
+            $lockedAssignment->delete();
+
+            $auditLogger->record(
+                'teaching_assignment.deleted',
+                $lockedAssignment,
+                $auditProperties
+            );
+        });
 
         return to_route('teaching-assignments.index')
             ->with('success', 'Teaching assignment removed successfully.');

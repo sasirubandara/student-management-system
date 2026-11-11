@@ -17,6 +17,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StudentCsvController;
 use App\Http\Controllers\StudentDocumentController;
+use App\Http\Controllers\AuditLogController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -82,6 +83,13 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Update user account status
     Route::patch('/users/{user}/status', [UserController::class, 'updateStatus'])
         ->name('users.status.update');
+
+    // Audit log management
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])
+        ->name('audit-logs.index');
+
+    Route::get('/audit-logs/{auditLog}', [AuditLogController::class, 'show'])
+        ->name('audit-logs.show');
 
     // Student listing
     Route::get('/students', [StudentController::class, 'index'])

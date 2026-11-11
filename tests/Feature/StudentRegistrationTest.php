@@ -1,5 +1,6 @@
-
 <?php
+
+use App\Models\Student;
 
 it('displays the student registration page', function () {
     $this->get(route('students.create'))
@@ -32,6 +33,17 @@ it('registers a student successfully', function () {
         'first_name' => 'Alex',
         'last_name' => 'Perera',
         'email' => 'alex@example.test',
+    ]);
+
+    $student = Student::query()
+        ->where('student_number', 'STU-TEST-001')
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'student.created',
+        'auditable_type' => $student->getMorphClass(),
+        'auditable_id' => $student->getKey(),
+        'user_id' => auth()->id(),
     ]);
 });
 
@@ -66,6 +78,10 @@ it('requires mandatory student fields', function () {
         ]);
 
     $this->assertDatabaseCount('students', 0);
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'student.created',
+    ]);
 });
 
 

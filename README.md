@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, student CSV import and export, student document management, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, audit logs and activity history, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -274,6 +274,55 @@ Reports preserve historical context by displaying related archived classes, subj
 
 The dashboard provides administrators and staff with an overview of current academic activity. Archived student and teacher statistics are restricted to administrators in accordance with the application's role permissions.
 
+### Audit Logs and Activity History
+
+The system records important application activities to provide an audit history of actions performed by administrators and staff users.
+
+**Recorded activities**
+
+Audit events include:
+
+- Authentication activities, including successful login and logout.
+- User account creation, role changes, and activation status changes.
+- Student creation, updates, archiving, and restoration.
+- Teacher creation, updates, archiving, and restoration.
+- Student enrollment creation and updates.
+- Attendance session creation and deletion.
+- Student attendance record creation, updates, and deletion.
+- Examination creation, updates, and deletion.
+- Examination result creation, updates, and deletion.
+- Academic class creation, updates, and archiving.
+- Subject creation, updates, and archiving.
+- Academic class subject assignments and removals.
+- Teaching assignment creation, updates, and deletion.
+- Student CSV import processing.
+- Student CSV export requests.
+- Student CSV template downloads.
+- Student document uploads and deletions.
+
+**Audit log management**
+
+- Administrators can view the audit log directory.
+- Administrators can search and filter audit records.
+- Administrators can filter records by event, module, user, and date.
+- Administrators can view individual audit activity details.
+- Staff users cannot access the audit log interface.
+- Audit records are read-only through the application interface.
+- The application does not provide routes for modifying or deleting audit records.
+
+**Privacy and security**
+
+Audit logging is designed to avoid unnecessarily storing sensitive information.
+
+- Passwords, tokens, secrets, authorization data, and similar credentials are excluded from audit properties.
+- Student and teacher update events record changed field names rather than personal field values.
+- Enrollment notes and attendance remarks are not stored in audit properties.
+- Student document events exclude file paths, original filenames, descriptions, and file contents.
+- CSV export events record whether a search filter was applied without storing the actual search term.
+- Document metadata recorded in audit events is limited to relevant information such as student ID, category, MIME type, and file size.
+
+Audit entries retain their activity history when an associated user account or audited record is deleted, subject to the application's database relationships.
+
 ### Authentication and Authorization
 
 - Secure user login and logout.
@@ -365,6 +414,10 @@ Administrators can:
 | View examination results | Yes | Yes |
 | Record and update examination results | Yes | Yes |
 | Remove individual examination results | Yes | No |
+| View audit logs | Yes | No |
+| Search and filter audit logs | Yes | No |
+| View individual audit activities | Yes | No |
+| Modify or delete audit records through the application | No | No |
 | View user directory | Yes | No |
 | Create staff accounts | Yes | No |
 | Manage user roles | Yes | No |
@@ -577,6 +630,24 @@ Run the examination management feature tests:
 php artisan test tests/Feature/ExaminationManagementTest.php
 ```
 
+Run the academic class management feature tests:
+
+```bash
+php artisan test tests/Feature/AcademicClassManagementTest.php
+```
+
+Run the subject management feature tests:
+
+```bash
+php artisan test tests/Feature/SubjectManagementTest.php
+```
+
+Run the audit log feature tests:
+
+```bash
+php artisan test tests/Feature/AuditLogTest.php
+```
+
 Run the dashboard and statistics feature tests:
 
 ```bash
@@ -665,13 +736,8 @@ git switch -c feature/your-feature-name
 
 The following features are potential future development milestones.
 
-### Academic Management
-
-Potential future academic functionality can be added as the application develops.
-
 ### Advanced Features
 
-- Audit logs.
 - Notifications.
 - Advanced search and filtering.
 
@@ -705,6 +771,7 @@ student-management-system/
 │   ├── css/
 │   ├── js/
 │   └── views/
+│       ├── audit-logs/
 │       └── students/
 │           └── documents/
 ├── routes/
@@ -731,12 +798,14 @@ student-management-system/
 - Generate unique filenames for uploaded documents.
 - Validate uploaded file types and file sizes.
 - Enforce authorization rules for student records and associated documents.
+- Restrict audit log access to administrators.
+- Avoid storing sensitive information in audit log properties.
 - Review authorization rules when adding new functionality.
 - Test security-sensitive changes before merging them into `main`.
 
 ## Project Status
 
-**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, academic reports, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports, dashboard and statistics, audit logs and activity history, authentication, role-based authorization, user management, and account activation have been implemented.
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
@@ -749,6 +818,10 @@ The dashboard displays summary cards, enrollment and attendance status totals, u
 Academic reports include student enrollment, attendance, and examination history, as well as filtered attendance and examination summaries. Administrators can view archived students' historical academic reports, while staff users are restricted to active student reports.
 
 Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Historical academic records are preserved through database relationships and deletion restrictions.
+
+The audit logging system records important authentication, user management, student, teacher, enrollment, attendance, examination, academic management, CSV, and document activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
+
+Audit records are designed to exclude sensitive credentials and unnecessary personal information. Changes to student and teacher records are tracked through changed field names, while document audit entries avoid storing file paths, original filenames, descriptions, and file contents. The application provides a read-only audit log interface.
 
 Automated testing and GitHub Actions support the development workflow.
 

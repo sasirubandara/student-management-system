@@ -10,6 +10,7 @@ use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Services\GradeCalculator;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -97,8 +98,10 @@ class ExaminationController extends Controller
     /**
      * Store a newly created examination.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', Examination::class);
 
         $validated = $request->validate([
@@ -147,10 +150,29 @@ class ExaminationController extends Controller
 
         $this->ensureNoDuplicateExamination($validated);
 
-        $examination = Examination::create([
-            ...$validated,
-            'created_by' => $request->user()->id,
-        ]);
+        $examination = DB::transaction(function () use (
+            $validated,
+            $request,
+            $auditLogger
+        ): Examination {
+            $examination = Examination::create([
+                ...$validated,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $auditLogger->record(
+                'examination.created',
+                $examination,
+                [
+                    'changed_fields' => [
+                        ...array_keys($validated),
+                        'created_by',
+                    ],
+                ]
+            );
+
+            return $examination;
+        });
 
         return redirect()
             ->route('examinations.show', $examination)
@@ -214,7 +236,8 @@ class ExaminationController extends Controller
      */
     public function update(
         Request $request,
-        Examination $examination
+        Examination $examination,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('update', $examination);
 
@@ -294,15 +317,31 @@ class ExaminationController extends Controller
             ]);
         }
 
-        $maximumMarksChanged = (float) $examination->maximum_marks
-            !== (float) $validated['maximum_marks'];
-
         DB::transaction(function () use (
             $examination,
             $validated,
-            $maximumMarksChanged
+            $auditLogger
         ): void {
-            $examination->update($validated);
+            $examination->fill($validated);
+
+            $changedFields = array_keys($examination->getDirty());
+
+            // There is nothing to audit when the examination is unchanged.
+            if ($changedFields === []) {
+                return;
+            }
+
+            $previousMaximumMarks = $examination->getOriginal('maximum_marks');
+
+            $maximumMarksChanged = in_array(
+                'maximum_marks',
+                $changedFields,
+                true
+            );
+
+            $examination->save();
+
+            $gradesRecalculated = 0;
 
             /*
              * Recalculate existing grades if maximum marks change.
@@ -310,21 +349,43 @@ class ExaminationController extends Controller
             if ($maximumMarksChanged) {
                 $calculator = app(GradeCalculator::class);
 
-                $examination->results()
-                    ->get()
-                    ->each(function ($result) use (
-                        $calculator,
-                        $examination,
-                        $validated
-                    ): void {
-                        $result->update([
-                            'grade' => $calculator->calculate(
-                                $result->marks_obtained,
-                                $validated['maximum_marks']
-                            ),
-                        ]);
-                    });
+                $results = $examination->results()->get();
+
+                $gradesRecalculated = $results->count();
+
+                $results->each(function ($result) use (
+                    $calculator,
+                    $validated
+                ): void {
+                    $result->update([
+                        'grade' => $calculator->calculate(
+                            $result->marks_obtained,
+                            $validated['maximum_marks']
+                        ),
+                    ]);
+                });
             }
+
+            $properties = [
+                'changed_fields' => $changedFields,
+            ];
+
+            if ($maximumMarksChanged) {
+                $properties['changes'] = [
+                    'maximum_marks' => [
+                        'old' => $previousMaximumMarks,
+                        'new' => $validated['maximum_marks'],
+                    ],
+                ];
+
+                $properties['grades_recalculated'] = $gradesRecalculated;
+            }
+
+            $auditLogger->record(
+                'examination.updated',
+                $examination,
+                $properties
+            );
         });
 
         return redirect()
@@ -335,11 +396,46 @@ class ExaminationController extends Controller
     /**
      * Delete an examination that has no results.
      */
-    public function destroy(Examination $examination): RedirectResponse
-    {
+    public function destroy(
+        Examination $examination,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('delete', $examination);
 
-        if ($examination->results()->exists()) {
+        $deleted = DB::transaction(function () use (
+            $examination,
+            $auditLogger
+        ): bool {
+            $lockedExamination = Examination::query()
+                ->whereKey($examination->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedExamination->results()->exists()) {
+                return false;
+            }
+
+            $auditProperties = [
+                'record' => [
+                    'title' => $lockedExamination->title,
+                    'exam_type' => $lockedExamination->exam_type,
+                    'exam_date' => (string) $lockedExamination->exam_date,
+                ],
+                'changed_fields' => ['deleted'],
+            ];
+
+            $lockedExamination->delete();
+
+            $auditLogger->record(
+                'examination.deleted',
+                $lockedExamination,
+                $auditProperties
+            );
+
+            return true;
+        });
+
+        if (! $deleted) {
             return redirect()
                 ->route('examinations.show', $examination)
                 ->with(
@@ -347,8 +443,6 @@ class ExaminationController extends Controller
                     'This examination cannot be removed because it contains examination results.'
                 );
         }
-
-        $examination->delete();
 
         return redirect()
             ->route('examinations.index')

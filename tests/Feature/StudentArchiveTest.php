@@ -32,6 +32,13 @@ it('archives a student successfully', function () {
     $this->assertSoftDeleted('students', [
         'id' => $student->id,
     ]);
+
+    $this->assertDatabaseHas('audit_logs', [
+        'event' => 'student.archived',
+        'auditable_type' => $student->getMorphClass(),
+        'auditable_id' => $student->getKey(),
+        'user_id' => $admin->id,
+    ]);
 });
 
 it('keeps archived students out of the listing and search', function () {

@@ -6,6 +6,7 @@ use App\Models\AttendanceSession;
 use App\Models\Student;
 use App\Models\StudentAttendance;
 use App\Models\StudentEnrollment;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,8 @@ class StudentAttendanceController extends Controller
      */
     public function save(
         Request $request,
-        AttendanceSession $attendanceSession
+        AttendanceSession $attendanceSession,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('update', $attendanceSession);
 
@@ -92,7 +94,8 @@ class StudentAttendanceController extends Controller
         DB::transaction(function () use (
             $attendanceSession,
             $validated,
-            $enrollments
+            $enrollments,
+            $auditLogger
         ): void {
             foreach ($validated['attendances'] as $attendanceData) {
                 $enrollment = $enrollments->get(
@@ -105,19 +108,54 @@ class StudentAttendanceController extends Controller
                         'student_enrollment_id' => $enrollment->id,
                     ]);
 
-                if ($attendance->exists) {
-                    Gate::authorize('update', $attendance);
-                } else {
-                    Gate::authorize('create', StudentAttendance::class);
-                }
+                $isNew = ! $attendance->exists;
+
+                $previousStatus = $attendance->status;
 
                 $attendance->fill([
                     'status' => $attendanceData['status'],
                     'remarks' => $attendanceData['remarks'] ?? null,
                 ]);
 
+                // Track only field names, never the actual remarks.
+                $changedFields = $isNew
+                    ? ['status']
+                    : array_values(array_intersect(
+                        ['status', 'remarks'],
+                        array_keys($attendance->getDirty())
+                    ));
+
+                if (! $isNew && $changedFields === []) {
+                    continue;
+                }
+
                 $attendanceSession->studentAttendances()
                     ->save($attendance);
+
+                $properties = [
+                    'changed_fields' => $changedFields,
+                ];
+
+                // Status changes are useful audit information.
+                if (
+                    ! $isNew
+                    && in_array('status', $changedFields, true)
+                ) {
+                    $properties['changes'] = [
+                        'status' => [
+                            'old' => $previousStatus,
+                            'new' => $attendance->status,
+                        ],
+                    ];
+                }
+
+                $auditLogger->record(
+                    $isNew
+                        ? 'attendance.record_created'
+                        : 'attendance.record_updated',
+                    $attendance,
+                    $properties
+                );
             }
         });
 
@@ -129,13 +167,27 @@ class StudentAttendanceController extends Controller
      * Remove an individual attendance record.
      */
     public function destroy(
-        StudentAttendance $studentAttendance
+        StudentAttendance $studentAttendance,
+        AuditLogger $auditLogger
     ): RedirectResponse {
         Gate::authorize('delete', $studentAttendance);
 
         $attendanceSession = $studentAttendance->attendanceSession;
 
-        $studentAttendance->delete();
+        DB::transaction(function () use (
+            $studentAttendance,
+            $auditLogger
+        ): void {
+            $studentAttendance->delete();
+
+            $auditLogger->record(
+                'attendance.record_deleted',
+                $studentAttendance,
+                [
+                    'changed_fields' => ['deleted'],
+                ]
+            );
+        });
 
         return to_route('attendance-sessions.show', $attendanceSession)
             ->with('success', 'Attendance record removed successfully.');

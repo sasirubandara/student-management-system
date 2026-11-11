@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Student;
+use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -56,13 +58,28 @@ class StudentController extends Controller
     /**
      * Restore an archived student.
      */
-    public function restore(Student $student): RedirectResponse
-    {
+    public function restore(
+        Student $student,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('restore', $student);
 
         abort_unless($student->trashed(), 404);
 
-        $student->restore();
+        DB::transaction(function () use (
+            $student,
+            $auditLogger
+        ): void {
+            $student->restore();
+
+            $auditLogger->record(
+                'student.restored',
+                $student,
+                [
+                    'changed_fields' => ['deleted_at'],
+                ]
+            );
+        });
 
         return to_route('students.show', $student)
             ->with('success', 'Student restored successfully.');
@@ -91,8 +108,11 @@ class StudentController extends Controller
     /**
      * Update an existing student's information.
      */
-    public function update(Request $request, Student $student): RedirectResponse
-    {
+    public function update(
+        Request $request,
+        Student $student,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('update', $student);
 
         $validated = $request->validate([
@@ -113,7 +133,30 @@ class StudentController extends Controller
             'status' => ['required', 'string', 'in:active,inactive'],
         ]);
 
-        $student->update($validated);
+        DB::transaction(function () use (
+            $student,
+            $validated,
+            $auditLogger
+        ): void {
+            $student->fill($validated);
+
+            // Store field names only, not personal information.
+            $changedFields = array_keys($student->getDirty());
+
+            if ($changedFields === []) {
+                return;
+            }
+
+            $student->save();
+
+            $auditLogger->record(
+                'student.updated',
+                $student,
+                [
+                    'changed_fields' => $changedFields,
+                ]
+            );
+        });
 
         return to_route('students.show', $student)
             ->with('success', 'Student information updated successfully.');
@@ -122,11 +165,26 @@ class StudentController extends Controller
     /**
      * Archive a student using soft deletion.
      */
-    public function destroy(Student $student): RedirectResponse
-    {
+    public function destroy(
+        Student $student,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('delete', $student);
 
-        $student->delete();
+        DB::transaction(function () use (
+            $student,
+            $auditLogger
+        ): void {
+            $student->delete();
+
+            $auditLogger->record(
+                'student.archived',
+                $student,
+                [
+                    'changed_fields' => ['deleted_at'],
+                ]
+            );
+        });
 
         return to_route('students.index')
             ->with('success', 'Student archived successfully.');
@@ -145,8 +203,10 @@ class StudentController extends Controller
     /**
      * Store a newly registered student.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        AuditLogger $auditLogger
+    ): RedirectResponse {
         Gate::authorize('create', Student::class);
 
         $validated = $request->validate([
@@ -165,7 +225,20 @@ class StudentController extends Controller
             'enrollment_date' => ['required', 'date'],
         ]);
 
-        Student::create($validated);
+        DB::transaction(function () use (
+            $validated,
+            $auditLogger
+        ): void {
+            $student = Student::create($validated);
+
+            $auditLogger->record(
+                'student.created',
+                $student,
+                [
+                    'changed_fields' => array_keys($validated),
+                ]
+            );
+        });
 
         return to_route('students.create')
             ->with('success', 'Student registered successfully.');
