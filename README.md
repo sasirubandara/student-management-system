@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, student CSV import and export, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, student CSV import and export, student document management, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -54,6 +54,31 @@ Optional columns:
 - `status`
 
 CSV uploads are limited to 2 MB.
+
+### Student Document Management
+
+- Upload documents and associate them with individual student records.
+- Store document titles, categories, descriptions, original filenames, MIME types, file sizes, and upload dates.
+- Record the system user responsible for each document upload.
+- Support PDF, JPG, JPEG, and PNG document formats.
+- Restrict document uploads to a maximum file size of 5 MB.
+- Generate unique filenames for uploaded documents.
+- Store uploaded documents in a dedicated private storage disk.
+- Display uploaded documents on individual student document management pages.
+- Download documents through authenticated application routes.
+- Verify student ownership before allowing document downloads or deletion.
+- Allow administrators and staff to view, upload, and download documents according to student permissions.
+- Restrict document deletion to administrators.
+- Preserve document metadata when an uploader's account is deleted.
+- Prevent accidental permanent deletion of students who still have associated documents.
+
+**Document storage and security**
+
+Uploaded files are stored privately under `storage/app/private/student-documents`, rather than being exposed through public URLs.
+
+Document downloads are handled through authenticated routes with authorization and student ownership checks. Generated filenames prevent uploaded filenames from determining storage paths.
+
+The `student_documents` database table stores document metadata and maintains relationships with students and the users who uploaded the documents.
 
 ### Student Enrollment Management
 
@@ -295,6 +320,10 @@ Administrators can:
 | Import student records | Yes | Yes |
 | Export active student records | Yes | Yes |
 | Download student CSV template | Yes | Yes |
+| View student documents | Yes | Yes |
+| Upload student documents | Yes | Yes |
+| Download student documents | Yes | Yes |
+| Delete student documents | Yes | No |
 | View teacher directory | Yes | Yes |
 | View teacher profiles | Yes | Yes |
 | Register teachers | Yes | No |
@@ -318,8 +347,8 @@ Administrators can:
 | Assign subjects to classes | Yes | No |
 | Remove subject assignments | Yes | No |
 | View teaching assignments | Yes | Yes |
-| Create teaching assignments | Yes | No |
-| Update teaching assignments | Yes | No |
+| Create teaching assignments | Yes | Yes |
+| Update teaching assignments | Yes | Yes |
 | Remove teaching assignments | Yes | No |
 | View attendance sessions | Yes | Yes |
 | Create attendance sessions | Yes | Yes |
@@ -512,6 +541,12 @@ Run the student CSV import and export feature tests:
 php artisan test tests/Feature/StudentCsvImportExportTest.php
 ```
 
+Run the student document management feature tests:
+
+```bash
+php artisan test tests/Feature/StudentDocumentManagementTest.php
+```
+
 Run the academic class-subject assignment feature tests:
 
 ```bash
@@ -670,7 +705,13 @@ student-management-system/
 │   ├── css/
 │   ├── js/
 │   └── views/
+│       └── students/
+│           └── documents/
 ├── routes/
+├── storage/
+│   └── app/
+│       └── private/
+│           └── student-documents/
 ├── tests/
 │   ├── Feature/
 │   └── Unit/
@@ -686,16 +727,22 @@ student-management-system/
 - Only synthetic student and teacher information should be used in development and demonstrations.
 - Never commit passwords, API keys, database credentials, or other environment secrets.
 - Use strong passwords for administrator accounts.
+- Store student documents in private storage rather than publicly accessible directories.
+- Generate unique filenames for uploaded documents.
+- Validate uploaded file types and file sizes.
+- Enforce authorization rules for student records and associated documents.
 - Review authorization rules when adding new functionality.
 - Test security-sensitive changes before merging them into `main`.
 
 ## Project Status
 
-**Current status:** Student management, student CSV import and export, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, academic reports, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, dashboard and statistics, academic reports, authentication, role-based authorization, user management, and account activation have been implemented.
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
 Student records can be imported and exported using CSV files. The import functionality validates individual records, identifies duplicates, and reports row-level errors while allowing valid records to be imported. The export functionality supports active student records and current search criteria, with protection against spreadsheet formula injection.
+
+Student document management allows administrators and staff to upload, view, and download documents associated with student profiles according to their permissions. Supported formats include PDF, JPG, JPEG, and PNG, with a maximum upload size of 5 MB. Documents are stored using generated filenames in private storage. Document downloads enforce authentication and student ownership checks, while document deletion is restricted to administrators.
 
 The dashboard displays summary cards, enrollment and attendance status totals, upcoming examinations, and recent student, enrollment, and attendance records. Archived student and teacher counts are visible to administrators only.
 

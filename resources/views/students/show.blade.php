@@ -30,6 +30,13 @@
             </a>
         @endcan
 
+        <a
+            href="{{ route('students.documents.index', $student) }}"
+            class="students-page__button"
+        >
+            Manage Documents
+        </a>
+
         <a href="{{ route('students.index') }}"
             class="students-page__button students-page__button--secondary">
             Back to Students
