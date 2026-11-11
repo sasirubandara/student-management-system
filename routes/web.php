@@ -16,6 +16,7 @@ use App\Http\Controllers\ExaminationResultController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StudentCsvController;
+use App\Http\Controllers\StudentDocumentController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -129,6 +130,27 @@ Route::middleware(['auth', 'active'])->group(function () {
     // Student profile
     Route::get('/students/{student}', [StudentController::class, 'show'])
         ->name('students.show');
+
+    // Student document management
+    Route::get(
+        '/students/{student}/documents',
+        [StudentDocumentController::class, 'index']
+    )->name('students.documents.index');
+
+    Route::post(
+        '/students/{student}/documents',
+        [StudentDocumentController::class, 'store']
+    )->name('students.documents.store');
+
+    Route::get(
+        '/students/{student}/documents/{document}/download',
+        [StudentDocumentController::class, 'download']
+    )->name('students.documents.download');
+
+    Route::delete(
+        '/students/{student}/documents/{document}',
+        [StudentDocumentController::class, 'destroy']
+    )->name('students.documents.destroy');
 
     // Teacher Management
 

@@ -36,4 +36,12 @@ class Student extends Model
     {
         return $this->hasMany(StudentEnrollment::class);
     }
+
+    /**
+     * Get the student's documents.
+     */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(StudentDocument::class);
+    }
 }
