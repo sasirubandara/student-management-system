@@ -1,23 +1,24 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\StudentController;
-use App\Http\Controllers\TeacherController;
-use App\Http\Controllers\UserController;
 use App\Http\Controllers\AcademicClassController;
 use App\Http\Controllers\AcademicClassSubjectController;
-use App\Http\Controllers\SubjectController;
-use App\Http\Controllers\StudentEnrollmentController;
-use App\Http\Controllers\TeachingAssignmentController;
 use App\Http\Controllers\AttendanceSessionController;
-use App\Http\Controllers\StudentAttendanceController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExaminationController;
 use App\Http\Controllers\ExaminationResultController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\StudentAttendanceController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentCsvController;
 use App\Http\Controllers\StudentDocumentController;
-use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\StudentEnrollmentController;
+use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\TeachingAssignmentController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Public home page
@@ -369,5 +370,19 @@ Route::middleware(['auth', 'active'])->group(function () {
         '/examination-results/{examinationResult}',
         [ExaminationResultController::class, 'destroy']
     )->name('examination-results.destroy');
+
+    // Notification routes
+    Route::get('/notifications', [NotificationController::class, 'index'])
+        ->name('notifications.index');
+
+    Route::patch('/notifications/read-all', [
+        NotificationController::class,
+        'markAllAsRead',
+    ])->name('notifications.read-all');
+
+    Route::patch('/notifications/{notification}/read', [
+        NotificationController::class,
+        'markAsRead',
+    ])->name('notifications.read');
 
 });

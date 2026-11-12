@@ -1,3 +1,7 @@
+@php
+    $notificationUnreadCount = auth()->user()?->unreadNotifications()->count() ?? 0;
+@endphp
+
 <nav class="app-navigation" aria-label="Main navigation">
 
     <a href="{{ route('dashboard') }}"
@@ -74,6 +78,20 @@
                 Subjects
             </a>
         @endcan
+
+        <a href="{{ route('notifications.index') }}"
+           aria-label="Notifications">
+
+            <span aria-hidden="true">🔔</span>
+            Notifications
+
+            @if ($notificationUnreadCount > 0)
+                <span class="app-navigation__notification-badge">
+                    {{ $notificationUnreadCount > 99 ? '99+' : $notificationUnreadCount }}
+                </span>
+            @endif
+
+        </a>
 
     </div>
 

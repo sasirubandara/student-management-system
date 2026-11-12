@@ -2,6 +2,7 @@
 
 use App\Models\AcademicClass;
 use App\Models\AttendanceSession;
+use App\Models\AuditLog;
 use App\Models\Student;
 use App\Models\StudentAttendance;
 use App\Models\StudentEnrollment;
@@ -331,6 +332,54 @@ it('allows staff users to create attendance sessions', function (): void {
     ]);
 });
 
+it('notifies other active users when an attendance session is created', function (): void {
+    $context = makeAttendanceManagementContext();
+
+    $inactiveUser = User::factory()->create([
+        'is_active' => false,
+    ]);
+
+    $response = $this->actingAs($context['admin'])
+        ->post(route('attendance-sessions.store'), [
+            'teaching_assignment_id' => $context['teachingAssignment']->id,
+            'attendance_date' => now()->toDateString(),
+        ]);
+
+    $attendanceSession = AttendanceSession::query()
+        ->where('teaching_assignment_id', $context['teachingAssignment']->id)
+        ->whereDate('attendance_date', now()->toDateString())
+        ->firstOrFail();
+
+    $response->assertRedirect(
+        route('attendance-sessions.show', $attendanceSession)
+    );
+
+    // Another active user should receive the notification.
+    $notification = $context['staff']->notifications()
+        ->where('type', 'attendance.session_created')
+        ->firstOrFail();
+
+    expect($notification->data['event'])
+        ->toBe('attendance.session_created');
+
+    expect($notification->data['url'])
+        ->toBe(route('attendance-sessions.show', $attendanceSession));
+
+    // The actor should not receive their own notification.
+    expect(
+        $context['admin']->notifications()
+            ->where('type', 'attendance.session_created')
+            ->exists()
+    )->toBeFalse();
+
+    // Inactive users must not receive notifications.
+    expect(
+        $inactiveUser->notifications()
+            ->where('type', 'attendance.session_created')
+            ->exists()
+    )->toBeFalse();
+});
+
 it('rejects duplicate sessions for the same teaching assignment and date', function (): void {
     $context = makeAttendanceManagementContext();
 
@@ -345,6 +394,26 @@ it('rejects duplicate sessions for the same teaching assignment and date', funct
     $response->assertSessionHasErrors('teaching_assignment_id');
 
     $this->assertDatabaseCount('attendance_sessions', 1);
+});
+
+it('does not notify users when a duplicate attendance session is rejected', function (): void {
+    $context = makeAttendanceManagementContext();
+
+    makeAttendanceManagementSession($context);
+
+    $response = $this->actingAs($context['admin'])
+        ->post(route('attendance-sessions.store'), [
+            'teaching_assignment_id' => $context['teachingAssignment']->id,
+            'attendance_date' => now()->toDateString(),
+        ]);
+
+    $response->assertSessionHasErrors('teaching_assignment_id');
+
+    expect(
+        $context['staff']->notifications()
+            ->where('type', 'attendance.session_created')
+            ->count()
+    )->toBe(0);
 });
 
 it('rejects future attendance dates', function (): void {
@@ -542,7 +611,7 @@ it('allows staff users to record attendance for active enrollments', function ()
         'user_id' => $context['staff']->id,
     ]);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'attendance.record_created')
         ->where('auditable_id', $attendance->id)
         ->firstOrFail();
@@ -635,7 +704,7 @@ it('updates existing attendance records instead of creating duplicates', functio
         'remarks' => 'Absence recorded.',
     ]);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'attendance.record_updated')
         ->where('auditable_id', $attendance->id)
         ->firstOrFail();

@@ -9,8 +9,9 @@ use App\Models\StudentEnrollment;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
-use App\Services\GradeCalculator;
 use App\Services\AuditLogger;
+use App\Services\GradeCalculator;
+use App\Services\NotificationService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -100,7 +101,8 @@ class ExaminationController extends Controller
      */
     public function store(
         Request $request,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        NotificationService $notificationService
     ): RedirectResponse {
         Gate::authorize('create', Examination::class);
 
@@ -150,16 +152,20 @@ class ExaminationController extends Controller
 
         $this->ensureNoDuplicateExamination($validated);
 
+        $actor = $request->user();
+
         $examination = DB::transaction(function () use (
             $validated,
-            $request,
-            $auditLogger
+            $actor,
+            $auditLogger,
+            $notificationService
         ): Examination {
             $examination = Examination::create([
                 ...$validated,
-                'created_by' => $request->user()->id,
+                'created_by' => $actor->id,
             ]);
 
+            // Record examination creation in the audit log.
             $auditLogger->record(
                 'examination.created',
                 $examination,
@@ -169,6 +175,38 @@ class ExaminationController extends Controller
                         'created_by',
                     ],
                 ]
+            );
+
+            // Load related records for the notification message.
+            $examination->load([
+                'teachingAssignment.teacher',
+                'teachingAssignment.academicClass',
+                'teachingAssignment.subject',
+            ]);
+
+            $assignment = $examination->teachingAssignment;
+
+            $examType = ucwords(
+                str_replace('_', ' ', $examination->exam_type)
+            );
+
+            $examDate = $examination->exam_date->format('M d, Y');
+
+            // Notify other active users.
+            $notificationService->notifyOtherActiveUsers(
+                actor: $actor,
+                event: 'examination.created',
+                title: 'New examination scheduled',
+                message: $examination->title
+                    .' ('.$examType.') for '
+                    .$assignment->academicClass->name
+                    .' — '
+                    .$assignment->subject->name
+                    .' is scheduled for '
+                    .$examDate
+                    .'.',
+                url: route('examinations.show', $examination),
+                icon: 'clipboard-check',
             );
 
             return $examination;
@@ -298,8 +336,7 @@ class ExaminationController extends Controller
                 !== (int) $examination->teaching_assignment_id
         ) {
             throw ValidationException::withMessages([
-                'teaching_assignment_id' =>
-                    'The teaching assignment cannot be changed after examination results have been recorded.',
+                'teaching_assignment_id' => 'The teaching assignment cannot be changed after examination results have been recorded.',
             ]);
         }
 
@@ -312,8 +349,7 @@ class ExaminationController extends Controller
                 < (float) $highestRecordedMark
         ) {
             throw ValidationException::withMessages([
-                'maximum_marks' =>
-                    'Maximum marks cannot be lower than an already recorded result.',
+                'maximum_marks' => 'Maximum marks cannot be lower than an already recorded result.',
             ]);
         }
 
@@ -494,8 +530,7 @@ class ExaminationController extends Controller
 
         if (! $assignment) {
             throw ValidationException::withMessages([
-                'teaching_assignment_id' =>
-                    'The selected teaching assignment is inactive or unavailable.',
+                'teaching_assignment_id' => 'The selected teaching assignment is inactive or unavailable.',
             ]);
         }
 
@@ -514,8 +549,7 @@ class ExaminationController extends Controller
             && (float) $passMarks > (float) $validated['maximum_marks']
         ) {
             throw ValidationException::withMessages([
-                'pass_marks' =>
-                    'Pass marks cannot exceed maximum marks.',
+                'pass_marks' => 'Pass marks cannot exceed maximum marks.',
             ]);
         }
     }
@@ -541,8 +575,7 @@ class ExaminationController extends Controller
 
         if ($query->exists()) {
             throw ValidationException::withMessages([
-                'title' =>
-                    'An examination with this title already exists for this teaching assignment and date.',
+                'title' => 'An examination with this title already exists for this teaching assignment and date.',
             ]);
         }
     }

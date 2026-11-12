@@ -19,8 +19,8 @@ function createStudentDocumentTestRecord(
     Student $student,
     User $user
 ): StudentDocument {
-    $path = 'students/' . $student->getKey()
-        . '/' . Str::uuid() . '.pdf';
+    $path = 'students/'.$student->getKey()
+        .'/'.Str::uuid().'.pdf';
 
     Storage::disk('student_documents')->put(
         $path,
@@ -124,6 +124,88 @@ it('allows staff to upload student documents', function () {
         ]);
 });
 
+it('notifies other active users when a student document is uploaded', function () {
+    $staff = makeStudentDocumentTestUser('staff');
+
+    $recipient = makeStudentDocumentTestUser('admin');
+
+    $inactiveUser = User::factory()->create([
+        'is_active' => false,
+    ]);
+
+    $unauthorizedUser = User::factory()->create([
+        'role' => 'viewer',
+        'is_active' => true,
+    ]);
+
+    $student = Student::factory()->create([
+        'first_name' => 'Alex',
+        'last_name' => 'Perera',
+    ]);
+
+    $file = UploadedFile::fake()->create(
+        'academic-record.pdf',
+        100,
+        'application/pdf'
+    );
+
+    $response = $this->actingAs($staff)
+        ->post(route('students.documents.store', $student), [
+            'title' => 'Academic Record',
+            'category' => 'academic',
+            'description' => 'Test academic document',
+            'file' => $file,
+        ]);
+
+    $response->assertRedirect(
+        route('students.documents.index', $student)
+    );
+
+    $document = StudentDocument::query()
+        ->where('student_id', $student->getKey())
+        ->firstOrFail();
+
+    Storage::disk('student_documents')
+        ->assertExists($document->file_path);
+
+    // Verify that another active user received the notification.
+    $notification = $recipient->notifications()
+        ->where('type', 'student.document_uploaded')
+        ->firstOrFail();
+
+    expect($notification->data)->toMatchArray([
+        'event' => 'student.document_uploaded',
+        'title' => 'Student document uploaded',
+        'message' => 'A new academic document titled "Academic Record" was uploaded for Alex Perera.',
+        'url' => route('students.documents.index', $student),
+        'icon' => 'file-up',
+    ]);
+
+    // The notification must not expose the private file path.
+    expect(json_encode($notification->data))
+        ->not->toContain($document->file_path);
+
+    // The uploader must not receive their own notification.
+    expect(
+        $staff->notifications()
+            ->where('type', 'student.document_uploaded')
+            ->exists()
+    )->toBeFalse();
+
+    // Inactive users must not receive notifications.
+    expect(
+        $inactiveUser->notifications()
+            ->where('type', 'student.document_uploaded')
+            ->exists()
+    )->toBeFalse();
+
+    expect(
+        $unauthorizedUser->notifications()
+            ->where('type', 'student.document_uploaded')
+            ->exists()
+    )->toBeFalse();
+});
+
 it('rejects unsupported document file types', function () {
     $staff = makeStudentDocumentTestUser('staff');
 
@@ -160,6 +242,8 @@ it('rejects unsupported document file types', function () {
             ->where('event', 'student.document_uploaded')
             ->exists()
     )->toBeFalse();
+
+    $this->assertDatabaseCount('notifications', 0);
 });
 
 it('rejects documents larger than 5 MB', function () {
@@ -242,7 +326,7 @@ it('returns not found when a document file is missing', function () {
         'title' => 'Missing Document',
         'category' => 'academic',
         'original_name' => 'missing-document.pdf',
-        'file_path' => 'students/' . $student->getKey() . '/missing.pdf',
+        'file_path' => 'students/'.$student->getKey().'/missing.pdf',
         'mime_type' => 'application/pdf',
         'file_size' => 100,
     ]);

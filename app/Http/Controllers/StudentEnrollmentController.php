@@ -6,6 +6,7 @@ use App\Models\AcademicClass;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Services\AuditLogger;
+use App\Services\NotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,11 +37,11 @@ class StudentEnrollmentController extends Controller
                             ->orWhere('first_name', 'like', $term)
                             ->orWhere('last_name', 'like', $term);
                     })
-                    ->orWhereHas('academicClass', function (Builder $query) use ($term): void {
-                        $query->where('name', 'like', $term)
-                            ->orWhere('code', 'like', $term);
-                    })
-                    ->orWhere('status', 'like', $term);
+                        ->orWhereHas('academicClass', function (Builder $query) use ($term): void {
+                            $query->where('name', 'like', $term)
+                                ->orWhere('code', 'like', $term);
+                        })
+                        ->orWhere('status', 'like', $term);
                 });
             })
             ->latest()
@@ -81,7 +82,8 @@ class StudentEnrollmentController extends Controller
      */
     public function store(
         Request $request,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        NotificationService $notificationService
     ): RedirectResponse {
         Gate::authorize('create', StudentEnrollment::class);
 
@@ -119,12 +121,17 @@ class StudentEnrollmentController extends Controller
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
+        $actor = $request->user();
+
         $enrollment = DB::transaction(function () use (
             $validated,
-            $auditLogger
+            $auditLogger,
+            $notificationService,
+            $actor
         ): StudentEnrollment {
             $enrollment = StudentEnrollment::create($validated);
 
+            // Record enrollment creation in the audit log.
             $auditLogger->record(
                 'enrollment.created',
                 $enrollment,
@@ -136,6 +143,24 @@ class StudentEnrollmentController extends Controller
                         'status',
                     ],
                 ]
+            );
+
+            // Load related records for the notification message.
+            $enrollment->load(['student', 'academicClass']);
+
+            // Notify other active users.
+            $notificationService->notifyOtherActiveUsers(
+                actor: $actor,
+                event: 'enrollment.created',
+                title: 'New student enrollment',
+                message: $enrollment->student->first_name
+                    .' '
+                    .$enrollment->student->last_name
+                    .' was enrolled in '
+                    .$enrollment->academicClass->name
+                    .'.',
+                url: route('student-enrollments.show', $enrollment),
+                icon: 'graduation-cap',
             );
 
             return $enrollment;
