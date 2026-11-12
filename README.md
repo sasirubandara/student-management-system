@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, audit logs and activity history, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, and administrator-controlled user account management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -37,7 +37,7 @@ This project is developed incrementally as a learning and software development p
 - Display import summaries and row-level error messages.
 - Reuse the existing student database table without introducing additional database tables.
 
-**CSV column requirements**
+****CSV column requirements****
 
 Required columns:
 
@@ -72,7 +72,7 @@ CSV uploads are limited to 2 MB.
 - Preserve document metadata when an uploader's account is deleted.
 - Prevent accidental permanent deletion of students who still have associated documents.
 
-**Document storage and security**
+****Document storage and security****
 
 Uploaded files are stored privately under `storage/app/private/student-documents`, rather than being exposed through public URLs.
 
@@ -87,12 +87,12 @@ The `student_documents` database table stores document metadata and maintains re
 - Search and paginate enrollment records.
 - Create new student enrollments.
 - Update enrollment dates, statuses, and administrative notes.
-- Support three enrollment statuses: **Active**, **Completed**, and **Withdrawn**.
+- Support three enrollment statuses: ****Active****, ****Completed****, and ****Withdrawn****.
 - Prevent duplicate enrollment records for the same student and academic class.
 - Reject enrollment creation when the selected student or academic class is inactive or archived.
 - Preserve enrollment records as historical records rather than permanently deleting them.
 
-**Enrollment history and duplicate prevention**
+****Enrollment history and duplicate prevention****
 
 Each student and academic class combination can have only one enrollment record. A unique database constraint prevents another record from being created for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
 
@@ -145,7 +145,7 @@ Teacher records are maintained separately from system user accounts. Teacher pro
 - Prevent inactive or archived subjects from being newly assigned.
 - Preserve subject assignment records when related subjects or classes are archived.
 
-**Class-subject relationship**
+****Class-subject relationship****
 
 Academic classes and subjects use a many-to-many relationship through the `academic_class_subject` pivot table.
 
@@ -165,7 +165,7 @@ Each assignment connects one academic class with one subject. A unique database 
 - Require the subject to already be assigned to the selected academic class.
 - Reject inactive or archived teachers, academic classes, and subjects when creating or updating assignments.
 
-**Teaching assignment relationship and duplicate prevention**
+****Teaching assignment relationship and duplicate prevention****
 
 Each teaching assignment connects one teacher, one academic class, and one subject through the `teaching_assignments` table.
 
@@ -179,7 +179,7 @@ Teaching assignments do not use soft deletes. Administrators can remove an assig
 
 - Create subject-based attendance sessions linked to teaching assignments.
 - Record attendance for students with active enrollments in the assigned academic class.
-- Support four attendance statuses: **Present**, **Absent**, **Late**, and **Excused**.
+- Support four attendance statuses: ****Present****, ****Absent****, ****Late****, and ****Excused****.
 - Record attendance for multiple students in one submission.
 - Update previously recorded student attendance.
 - Add optional remarks to individual attendance records.
@@ -196,7 +196,7 @@ Teaching assignments do not use soft deletes. Administrators can remove an assig
 - Restrict removal of attendance sessions and individual attendance records to administrators.
 - Prevent removal of attendance sessions that contain student attendance records.
 
-**Attendance session and student attendance relationships**
+****Attendance session and student attendance relationships****
 
 Each attendance session belongs to one teaching assignment and has an attendance date. A unique database constraint prevents more than one session from being created for the same teaching assignment on the same date.
 
@@ -234,7 +234,7 @@ Each attendance session also records the user who created it.
 - Restrict examination deletion and individual result deletion to administrators.
 - Prevent examination deletion when examination results exist.
 
-**Examination and result relationships**
+****Examination and result relationships****
 
 Each examination belongs to one teaching assignment, connecting a teacher, an academic class, and a subject.
 
@@ -251,7 +251,7 @@ Foreign-key restrictions protect examinations, student enrollments, and historic
 - Summarize each student's attendance records by status and display attendance history with class, subject, teacher, date, and remarks.
 - Display examination history, marks obtained, maximum marks, grades, and remarks for each student.
 - Provide attendance reports filterable by academic class, subject, and date range.
-- Summarize attendance records by **Present**, **Absent**, **Late**, and **Excused** across all matching sessions.
+- Summarize attendance records by ****Present****, ****Absent****, ****Late****, and ****Excused**** across all matching sessions.
 - Provide examination reports filterable by academic class, subject, and date range.
 - Summarize examination counts, recorded results, and grade distributions across matching examinations.
 - Allow administrators to view archived students in the report directory and open their historical academic reports; staff users can view active student reports only.
@@ -265,8 +265,8 @@ Reports preserve historical context by displaying related archived classes, subj
 - Provide a central dashboard for administrators and staff after authentication.
 - Display summary cards for students, teachers, academic classes, subjects, student enrollments, teaching assignments, attendance sessions this month, and examinations.
 - Show student and teacher totals with active and inactive counts.
-- Summarize student enrollments by status: **Active**, **Completed**, and **Withdrawn**.
-- Summarize attendance records by status: **Present**, **Absent**, **Late**, and **Excused**.
+- Summarize student enrollments by status: ****Active****, ****Completed****, and ****Withdrawn****.
+- Summarize attendance records by status: ****Present****, ****Absent****, ****Late****, and ****Excused****.
 - Display upcoming examinations with their dates and teaching assignment details.
 - Display recent student records, student enrollments, and attendance sessions.
 - Show archived student and teacher counts to administrators only.
@@ -274,11 +274,40 @@ Reports preserve historical context by displaying related archived classes, subj
 
 The dashboard provides administrators and staff with an overview of current academic activity. Archived student and teacher statistics are restricted to administrators in accordance with the application's role permissions.
 
+### In-App Notifications
+
+The application provides database-backed notifications to keep active users informed about important system activities.
+
+**Supported events**
+
+| Event | Activity |
+|---|---|
+| `student.created` | A new student is registered. |
+| `enrollment.created` | A student is enrolled in an academic class. |
+| `attendance.session_created` | An attendance session is created. |
+| `examination.created` | An examination is scheduled. |
+| `student.document_uploaded` | A document is uploaded to a student record. |
+
+**Notification features**
+
+- Notify other active users when supported activities occur; the acting user is excluded.
+- Display a paginated notification inbox with read and unread states.
+- Show an unread notification count in the authenticated navigation.
+- Allow users to mark one notification or all their unread notifications as read.
+- Store notification event types, titles, messages, icons, and optional destination URLs in the database.
+- Restrict student document upload notifications to active administrators and staff.
+
+**Security and reliability**
+
+Notification routes require authentication and an active account. Users can view and update only notifications belonging to their own account. Student document downloads remain protected by student authorization and private file storage. Notification records are created within the relevant activity's database transaction; document upload processing also attempts to clean up the stored file if the database operation fails.
+
+The notifications table is created by the standard `php artisan migrate` command in the installation instructions. No separate notification service or queue worker is required for the current synchronous database delivery.
+
 ### Audit Logs and Activity History
 
 The system records important application activities to provide an audit history of actions performed by administrators and staff users.
 
-**Recorded activities**
+****Recorded activities****
 
 Audit events include:
 
@@ -300,7 +329,7 @@ Audit events include:
 - Student CSV template downloads.
 - Student document uploads and deletions.
 
-**Audit log management**
+****Audit log management****
 
 - Administrators can view the audit log directory.
 - Administrators can search and filter audit records.
@@ -310,7 +339,7 @@ Audit events include:
 - Audit records are read-only through the application interface.
 - The application does not provide routes for modifying or deleting audit records.
 
-**Privacy and security**
+****Privacy and security****
 
 Audit logging is designed to avoid unnecessarily storing sensitive information.
 
@@ -414,6 +443,8 @@ Administrators can:
 | View examination results | Yes | Yes |
 | Record and update examination results | Yes | Yes |
 | Remove individual examination results | Yes | No |
+| View own in-app notifications | Yes | Yes |
+| Mark own notifications as read | Yes | Yes |
 | View audit logs | Yes | No |
 | Search and filter audit logs | Yes | No |
 | View individual audit activities | Yes | No |
@@ -642,6 +673,16 @@ Run the subject management feature tests:
 php artisan test tests/Feature/SubjectManagementTest.php
 ```
 
+Run the in-app notification tests:
+
+```bash
+php artisan test tests/Feature/NotificationControllerTest.php
+php artisan test tests/Feature/NotificationServiceTest.php
+php artisan test tests/Feature/SystemActivityNotificationTest.php
+```
+
+Notification event integration tests also run within the student registration, enrollment, attendance, examination, and student document management feature tests.
+
 Run the audit log feature tests:
 
 ```bash
@@ -701,12 +742,19 @@ The Laravel CI workflow runs when:
 The workflow:
 
 1. Checks out the repository.
+
 2. Sets up PHP and Composer.
+
 3. Sets up Node.js.
+
 4. Installs Composer dependencies.
+
 5. Prepares the Laravel environment.
+
 6. Installs npm dependencies.
+
 7. Runs the Pest test suite.
+
 8. Builds frontend assets using Vite.
 
 The workflow uses SQLite for automated testing and does not require access to the local development database.
@@ -716,12 +764,19 @@ The workflow uses SQLite for automated testing and does not require access to th
 The project follows an incremental feature-based Git workflow.
 
 1. Keep the `main` branch synchronized with GitHub.
+
 2. Create a dedicated branch for each feature or maintenance task.
+
 3. Implement the changes.
+
 4. Run automated tests and frontend build checks.
+
 5. Review and commit the changes.
+
 6. Push the feature branch to GitHub.
+
 7. Open a pull request targeting `main`.
+
 8. Review and merge the pull request after verification.
 
 Example:
@@ -738,7 +793,6 @@ The following features are potential future development milestones.
 
 ### Advanced Features
 
-- Notifications.
 - Advanced search and filtering.
 
 ### Further Quality Improvements
@@ -754,36 +808,38 @@ The following features are potential future development milestones.
 ```text
 student-management-system/
 ├── app/
-│   ├── Console/
-│   ├── Http/
-│   │   ├── Controllers/
-│   │   └── Middleware/
-│   ├── Models/
-│   ├── Policies/
-│   └── Services/
+│   ├── Console/
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   └── Middleware/
+│   ├── Notifications/
+│   ├── Models/
+│   ├── Policies/
+│   └── Services/
 ├── bootstrap/
 ├── config/
 ├── database/
-│   ├── factories/
-│   ├── migrations/
-│   └── seeders/
+│   ├── factories/
+│   ├── migrations/
+│   └── seeders/
 ├── resources/
-│   ├── css/
-│   ├── js/
-│   └── views/
-│       ├── audit-logs/
-│       └── students/
-│           └── documents/
+│   ├── css/
+│   ├── js/
+│   └── views/
+│       ├── audit-logs/
+│       ├── notifications/
+│       └── students/
+│           └── documents/
 ├── routes/
 ├── storage/
-│   └── app/
-│       └── private/
-│           └── student-documents/
+│   └── app/
+│       └── private/
+│           └── student-documents/
 ├── tests/
-│   ├── Feature/
-│   └── Unit/
+│   ├── Feature/
+│   └── Unit/
 ├── .github/
-│   └── workflows/
+│   └── workflows/
 ├── composer.json
 ├── package.json
 └── README.md
@@ -799,13 +855,15 @@ student-management-system/
 - Validate uploaded file types and file sizes.
 - Enforce authorization rules for student records and associated documents.
 - Restrict audit log access to administrators.
+- Restrict notification access and read-status updates to the owning user.
+- Limit student document upload notifications to authorized administrator and staff accounts.
 - Avoid storing sensitive information in audit log properties.
 - Review authorization rules when adding new functionality.
 - Test security-sensitive changes before merging them into `main`.
 
 ## Project Status
 
-**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports, dashboard and statistics, audit logs and activity history, authentication, role-based authorization, user management, and account activation have been implemented.
+****Current status:**** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, and account activation have been implemented.
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
@@ -823,8 +881,10 @@ The audit logging system records important authentication, user management, stud
 
 Audit records are designed to exclude sensitive credentials and unnecessary personal information. Changes to student and teacher records are tracked through changed field names, while document audit entries avoid storing file paths, original filenames, descriptions, and file contents. The application provides a read-only audit log interface.
 
+The in-app notification system informs other active users about student registration, enrollment creation, attendance session creation, examination scheduling, and student document uploads. Each user can view and mark their own notifications as read; document upload notifications are limited to administrators and staff.
+
 Automated testing and GitHub Actions support the development workflow.
 
----
+**---**
 
 Built as a continuous learning and software development portfolio project.

@@ -10,6 +10,7 @@ use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Services\AuditLogger;
+use App\Services\NotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,21 +50,21 @@ class AttendanceSessionController extends Controller
                                 ->orWhere('last_name', 'like', $term);
                         }
                     )
-                    ->orWhereHas(
-                        'teachingAssignment.academicClass',
-                        function (Builder $classQuery) use ($term): void {
-                            $classQuery->where('name', 'like', $term)
-                                ->orWhere('code', 'like', $term);
-                        }
-                    )
-                    ->orWhereHas(
-                        'teachingAssignment.subject',
-                        function (Builder $subjectQuery) use ($term): void {
-                            $subjectQuery->where('name', 'like', $term)
-                                ->orWhere('code', 'like', $term);
-                        }
-                    )
-                    ->orWhereDate('attendance_date', 'like', $term);
+                        ->orWhereHas(
+                            'teachingAssignment.academicClass',
+                            function (Builder $classQuery) use ($term): void {
+                                $classQuery->where('name', 'like', $term)
+                                    ->orWhere('code', 'like', $term);
+                            }
+                        )
+                        ->orWhereHas(
+                            'teachingAssignment.subject',
+                            function (Builder $subjectQuery) use ($term): void {
+                                $subjectQuery->where('name', 'like', $term)
+                                    ->orWhere('code', 'like', $term);
+                            }
+                        )
+                        ->orWhereDate('attendance_date', 'like', $term);
                 });
             })
             ->latest('attendance_date')
@@ -111,7 +112,8 @@ class AttendanceSessionController extends Controller
      */
     public function store(
         Request $request,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        NotificationService $notificationService
     ): RedirectResponse {
         Gate::authorize('create', AttendanceSession::class);
 
@@ -142,8 +144,7 @@ class AttendanceSessionController extends Controller
 
         if ($duplicateSessionExists) {
             throw ValidationException::withMessages([
-                'teaching_assignment_id' =>
-                    'An attendance session already exists for this teaching assignment and date.',
+                'teaching_assignment_id' => 'An attendance session already exists for this teaching assignment and date.',
             ]);
         }
 
@@ -162,23 +163,26 @@ class AttendanceSessionController extends Controller
 
         if (! $teachingAssignment) {
             throw ValidationException::withMessages([
-                'teaching_assignment_id' =>
-                    'The selected teaching assignment is unavailable. '
-                    . 'Select an active teacher, academic class and subject.',
+                'teaching_assignment_id' => 'The selected teaching assignment is unavailable. '
+                    .'Select an active teacher, academic class and subject.',
             ]);
         }
 
+        $actor = $request->user();
+
         $attendanceSession = DB::transaction(function () use (
             $validated,
-            $request,
-            $auditLogger
+            $actor,
+            $auditLogger,
+            $notificationService
         ): AttendanceSession {
             $attendanceSession = AttendanceSession::create([
                 'teaching_assignment_id' => $validated['teaching_assignment_id'],
                 'attendance_date' => $validated['attendance_date'],
-                'created_by' => $request->user()->id,
+                'created_by' => $actor->id,
             ]);
 
+            // Record attendance session creation in the audit log.
             $auditLogger->record(
                 'attendance.session_created',
                 $attendanceSession,
@@ -189,6 +193,36 @@ class AttendanceSessionController extends Controller
                         'created_by',
                     ],
                 ]
+            );
+
+            // Load related records for the notification message.
+            $attendanceSession->load([
+                'teachingAssignment.teacher',
+                'teachingAssignment.academicClass',
+                'teachingAssignment.subject',
+            ]);
+
+            $assignment = $attendanceSession->teachingAssignment;
+            $teacher = $assignment->teacher;
+            $academicClass = $assignment->academicClass;
+            $subject = $assignment->subject;
+
+            // Notify other active users.
+            $notificationService->notifyOtherActiveUsers(
+                actor: $actor,
+                event: 'attendance.session_created',
+                title: 'New attendance session created',
+                message: 'An attendance session for '
+                    .$academicClass->name
+                    .' — '
+                    .$subject->name
+                    .' with '
+                    .$teacher->first_name
+                    .' '
+                    .$teacher->last_name
+                    .' has been created.',
+                url: route('attendance-sessions.show', $attendanceSession),
+                icon: 'calendar-check',
             );
 
             return $attendanceSession;
@@ -275,9 +309,8 @@ class AttendanceSessionController extends Controller
         if (! $deleted) {
             return to_route('attendance-sessions.show', $attendanceSession)
                 ->withErrors([
-                    'attendance_session' =>
-                        'This session cannot be removed because it contains '
-                        . 'student attendance records. Attendance history must be preserved.',
+                    'attendance_session' => 'This session cannot be removed because it contains '
+                        .'student attendance records. Attendance history must be preserved.',
                 ]);
         }
 

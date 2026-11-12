@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Services\AuditLogger;
+use App\Services\NotificationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -205,7 +206,8 @@ class StudentController extends Controller
      */
     public function store(
         Request $request,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        NotificationService $notificationService
     ): RedirectResponse {
         Gate::authorize('create', Student::class);
 
@@ -225,18 +227,33 @@ class StudentController extends Controller
             'enrollment_date' => ['required', 'date'],
         ]);
 
+        $actor = $request->user();
+
         DB::transaction(function () use (
             $validated,
-            $auditLogger
+            $auditLogger,
+            $notificationService,
+            $actor
         ): void {
             $student = Student::create($validated);
 
+            // Record the student creation in the audit log.
             $auditLogger->record(
                 'student.created',
                 $student,
                 [
                     'changed_fields' => array_keys($validated),
                 ]
+            );
+
+            // Notify other active administrators and staff.
+            $notificationService->notifyOtherActiveUsers(
+                actor: $actor,
+                event: 'student.created',
+                title: 'New student registered',
+                message: 'A new student record has been created.',
+                url: route('students.show', $student),
+                icon: 'user-plus',
             );
         });
 

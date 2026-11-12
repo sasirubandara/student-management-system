@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AcademicClass;
+use App\Models\AuditLog;
 use App\Models\Examination;
 use App\Models\ExaminationResult;
 use App\Models\Student;
@@ -9,6 +10,7 @@ use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 /*
@@ -353,6 +355,69 @@ it('allows staff users to create examinations', function (): void {
     ]);
 });
 
+it('notifies other active users when an examination is created', function (): void {
+    $context = makeExaminationManagementContext();
+
+    $inactiveUser = User::factory()->create([
+        'is_active' => false,
+    ]);
+
+    $examDate = now()->toDateString();
+
+    $response = $this->actingAs($context['admin'])
+        ->post(route('examinations.store'), [
+            'teaching_assignment_id' => $context['teachingAssignment']->id,
+            'title' => 'Notification Test Examination',
+            'exam_type' => Examination::TYPE_QUIZ,
+            'exam_date' => $examDate,
+            'maximum_marks' => 100,
+            'pass_marks' => 40,
+        ]);
+
+    $examination = Examination::query()
+        ->where('title', 'Notification Test Examination')
+        ->firstOrFail();
+
+    $response->assertRedirect(
+        route('examinations.show', $examination)
+    );
+
+    // Another active user receives the notification.
+    $notification = $context['staff']->notifications()
+        ->where('type', 'examination.created')
+        ->firstOrFail();
+
+    expect($notification->data)->toMatchArray([
+        'event' => 'examination.created',
+        'title' => 'New examination scheduled',
+        'url' => route('examinations.show', $examination),
+        'icon' => 'clipboard-check',
+    ]);
+
+    // Verify the examination details in the notification message.
+    $message = $notification->data['message'];
+
+    expect($message)
+        ->toContain('Notification Test Examination')
+        ->toContain($context['academicClass']->name)
+        ->toContain($context['subject']->name)
+        ->toContain($examination->exam_date->format('M d, Y'));
+
+    // The administrator must not receive their own notification.
+    expect(
+        $context['admin']->notifications()
+            ->where('type', 'examination.created')
+            ->exists()
+    )->toBeFalse();
+
+    // Inactive users must not receive notifications.
+    expect(
+        $inactiveUser->notifications()
+            ->where('type', 'examination.created')
+            ->exists()
+    )->toBeFalse();
+});
+
 it('rejects duplicate examinations for the same assignment title and date', function (): void {
     $context = makeExaminationManagementContext();
 
@@ -407,6 +472,8 @@ it('rejects invalid examination types', function (): void {
         ]);
 
     $response->assertSessionHasErrors('exam_type');
+
+    $this->assertDatabaseCount('notifications', 0);
 });
 
 it('rejects zero maximum marks', function (): void {
@@ -518,7 +585,9 @@ it('allows administrators and staff to edit examinations', function (): void {
 it('allows administrators to update examination information', function (): void {
     $context = makeExaminationManagementContext();
 
-    $examination = makeExaminationManagementExamination($context);
+    $examination = makeExaminationManagementExamination($context, [
+        'exam_type' => Examination::TYPE_QUIZ,
+    ]);
 
     $response = $this->actingAs($context['admin'])
         ->put(route('examinations.update', $examination), [
@@ -539,7 +608,7 @@ it('allows administrators to update examination information', function (): void 
         'title' => 'Updated Examination Title',
     ]);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'examination.updated')
         ->where('auditable_id', $examination->id)
         ->firstOrFail();
@@ -653,7 +722,7 @@ it('recalculates existing grades when maximum marks change', function (): void {
 
     expect($result->fresh()->grade)->toBe('A');
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'examination.updated')
         ->where('auditable_id', $examination->id)
         ->firstOrFail();
@@ -790,7 +859,7 @@ it('allows administrators to record results for multiple students', function ():
             'user_id' => $context['admin']->id,
         ]);
 
-        $auditLog = \App\Models\AuditLog::query()
+        $auditLog = AuditLog::query()
             ->where('event', 'examination.result_created')
             ->where('auditable_id', $result->id)
             ->firstOrFail();
@@ -858,7 +927,7 @@ it('updates existing examination results instead of creating duplicates', functi
         'grade' => 'A',
     ]);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'examination.result_updated')
         ->where('auditable_id', $result->id)
         ->firstOrFail();
@@ -1212,5 +1281,5 @@ it('prevents deletion of an examination with related results at database level',
     expect(fn () => DB::table('examinations')
         ->where('id', $examination->id)
         ->delete()
-    )->toThrow(\Illuminate\Database\QueryException::class);
+    )->toThrow(QueryException::class);
 });

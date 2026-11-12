@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AcademicClass;
+use App\Models\AuditLog;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\User;
@@ -179,7 +180,7 @@ it('allows administrators to create student enrollments', function (): void {
         'user_id' => $admin->id,
     ]);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'enrollment.created')
         ->where('auditable_id', $createdEnrollment->id)
         ->firstOrFail();
@@ -192,6 +193,62 @@ it('allows administrators to create student enrollments', function (): void {
 
     expect(json_encode($auditLog->properties))
         ->not->toContain('Initial enrollment.');
+});
+
+it('notifies other active users when a student is enrolled', function (): void {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $recipient = User::factory()->create([
+        'role' => User::ROLE_STAFF,
+    ]);
+
+    $student = Student::factory()->create([
+        'first_name' => 'Alex',
+        'last_name' => 'Perera',
+    ]);
+
+    $academicClass = AcademicClass::factory()->create([
+        'name' => 'Grade 10',
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(route('student-enrollments.store'), [
+            'student_id' => $student->id,
+            'academic_class_id' => $academicClass->id,
+            'enrollment_date' => '2026-01-15',
+            'status' => StudentEnrollment::STATUS_ACTIVE,
+        ]);
+
+    $enrollment = StudentEnrollment::query()
+        ->where('student_id', $student->id)
+        ->where('academic_class_id', $academicClass->id)
+        ->firstOrFail();
+
+    $response->assertRedirect(
+        route('student-enrollments.show', $enrollment)
+    );
+
+    // Verify that another active user received the notification.
+    $notification = $recipient->notifications()
+        ->where('type', 'enrollment.created')
+        ->firstOrFail();
+
+    expect($notification->data)->toMatchArray([
+        'event' => 'enrollment.created',
+        'title' => 'New student enrollment',
+        'message' => 'Alex Perera was enrolled in Grade 10.',
+        'url' => route('student-enrollments.show', $enrollment),
+        'icon' => 'graduation-cap',
+    ]);
+
+    // Verify that the acting administrator did not receive the notification.
+    $this->assertDatabaseMissing('notifications', [
+        'notifiable_type' => $admin->getMorphClass(),
+        'notifiable_id' => $admin->getKey(),
+        'type' => 'enrollment.created',
+    ]);
 });
 
 it('prevents staff users from creating enrollments', function (): void {
@@ -354,6 +411,8 @@ it('rejects invalid enrollment statuses', function (): void {
     $this->assertDatabaseMissing('audit_logs', [
         'event' => 'enrollment.created',
     ]);
+
+    $this->assertDatabaseCount('notifications', 0);
 });
 
 // Enrollment editing

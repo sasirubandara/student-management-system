@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Student;
 use App\Models\StudentDocument;
+use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +55,7 @@ class StudentDocumentController extends Controller
         $disk = Storage::disk('student_documents');
 
         // Ensure the stored path belongs to this student's directory.
-        $expectedDirectory = 'students/' . $student->getKey() . '/';
+        $expectedDirectory = 'students/'.$student->getKey().'/';
 
         abort_unless(
             Str::startsWith($document->file_path, $expectedDirectory),
@@ -105,7 +107,7 @@ class StudentDocumentController extends Controller
                 ->firstOrFail();
 
             // Ensure the stored path belongs to this student's directory.
-            $expectedDirectory = 'students/' . $student->getKey() . '/';
+            $expectedDirectory = 'students/'.$student->getKey().'/';
 
             abort_unless(
                 Str::startsWith(
@@ -178,7 +180,8 @@ class StudentDocumentController extends Controller
     public function store(
         Request $request,
         Student $student,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        NotificationService $notificationService
     ) {
         // The user must be authorized to view this student.
         Gate::authorize('view', $student);
@@ -230,11 +233,13 @@ class StudentDocumentController extends Controller
             ]),
         };
 
+        $actor = $request->user();
+
         // Generate a unique filename rather than trusting the original name.
-        $filename = Str::uuid()->toString() . '.' . $extension;
+        $filename = Str::uuid()->toString().'.'.$extension;
 
         // Keep each student's documents in a separate directory.
-        $directory = 'students/' . $student->getKey();
+        $directory = 'students/'.$student->getKey();
 
         $storedPath = null;
 
@@ -255,15 +260,16 @@ class StudentDocumentController extends Controller
             // Save document metadata and its audit entry together.
             DB::transaction(function () use (
                 $student,
-                $request,
+                $actor,
                 $validated,
                 $file,
                 $storedPath,
                 $mimeType,
-                $auditLogger
+                $auditLogger,
+                $notificationService
             ): void {
                 $document = $student->documents()->create([
-                    'uploaded_by' => $request->user()->getKey(),
+                    'uploaded_by' => $actor->getKey(),
 
                     'title' => $validated['title'],
 
@@ -290,11 +296,51 @@ class StudentDocumentController extends Controller
                         'file_size' => $document->file_size,
                     ]
                 );
+
+                // Notify other active users about the document upload.
+                $notificationService->notifyOtherActiveUsers(
+                    actor: $actor,
+                    event: 'student.document_uploaded',
+                    title: 'Student document uploaded',
+                    message: 'A new '
+                        .$document->category
+                        .' document titled "'
+                        .$document->title
+                        .'" was uploaded for '
+                        .$student->first_name
+                        .' '
+                        .$student->last_name
+                        .'.',
+                    url: route('students.documents.index', $student),
+                    icon: 'file-up',
+                    recipientRoles: [
+                        User::ROLE_ADMIN,
+                        User::ROLE_STAFF,
+                    ],
+                );
             });
         } catch (Throwable $exception) {
-            // Remove the stored file if metadata or audit insertion fails.
+            // Clean up the uploaded file if the database operation fails.
             if (is_string($storedPath)) {
-                Storage::disk('student_documents')->delete($storedPath);
+                try {
+                    $disk = Storage::disk('student_documents');
+
+                    if ($disk->exists($storedPath)) {
+                        $deleted = $disk->delete($storedPath);
+
+                        if (! $deleted && $disk->exists($storedPath)) {
+                            throw new RuntimeException(
+                                'The uploaded document could not be cleaned up.'
+                            );
+                        }
+                    }
+                } catch (Throwable $cleanupException) {
+                    Log::warning('Student document upload cleanup failed.', [
+                        'student_id' => $student->getKey(),
+                        'file_path' => $storedPath,
+                        'exception' => $cleanupException->getMessage(),
+                    ]);
+                }
             }
 
             throw $exception;
