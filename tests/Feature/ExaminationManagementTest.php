@@ -1283,3 +1283,202 @@ it('prevents deletion of an examination with related results at database level',
         ->delete()
     )->toThrow(QueryException::class);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Examination Filtering and Pagination
+|--------------------------------------------------------------------------
+*/
+
+it('filters examinations by examination type', function (): void {
+    $context = makeExaminationManagementContext();
+
+    $matching = makeExaminationManagementExamination($context, [
+        'exam_type' => Examination::TYPE_QUIZ,
+    ]);
+
+    $other = makeExaminationManagementExamination($context, [
+        'exam_type' => Examination::TYPE_MIDTERM,
+    ]);
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'exam_type' => Examination::TYPE_QUIZ,
+        ]))
+        ->assertOk()
+        ->assertViewHas('examinations', function ($examinations) use ($matching, $other): bool {
+            return $examinations->contains('id', $matching->id)
+                && ! $examinations->contains('id', $other->id);
+        });
+});
+
+it('filters examinations by teacher class and subject', function (): void {
+    $context = makeExaminationManagementContext();
+
+    $examination = makeExaminationManagementExamination($context);
+
+    foreach ([
+        'teacher_id' => $context['teacher']->id,
+        'academic_class_id' => $context['academicClass']->id,
+        'subject_id' => $context['subject']->id,
+    ] as $filter => $value) {
+        $this->actingAs($context['admin'])
+            ->get(route('examinations.index', [
+                $filter => $value,
+            ]))
+            ->assertOk()
+            ->assertViewHas('examinations', function ($examinations) use ($examination): bool {
+                return $examinations->contains('id', $examination->id);
+            });
+    }
+});
+
+it('filters examinations by inclusive exam date range', function (): void {
+    $context = makeExaminationManagementContext();
+
+    $before = makeExaminationManagementExamination($context, [
+        'exam_date' => '2026-01-09',
+    ]);
+
+    $start = makeExaminationManagementExamination($context, [
+        'exam_date' => '2026-01-10',
+    ]);
+
+    $end = makeExaminationManagementExamination($context, [
+        'exam_date' => '2026-01-20',
+    ]);
+
+    $after = makeExaminationManagementExamination($context, [
+        'exam_date' => '2026-01-21',
+    ]);
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'exam_from' => '2026-01-10',
+            'exam_to' => '2026-01-20',
+        ]))
+        ->assertOk()
+        ->assertViewHas('examinations', function ($examinations) use ($before, $start, $end, $after): bool {
+            return ! $examinations->contains('id', $before->id)
+                && $examinations->contains('id', $start->id)
+                && $examinations->contains('id', $end->id)
+                && ! $examinations->contains('id', $after->id);
+        });
+});
+
+it('combines examination search type relationship and date filters', function (): void {
+    $context = makeExaminationManagementContext();
+
+    $matching = makeExaminationManagementExamination($context, [
+        'title' => 'UNIQUE FILTER MATCH',
+        'exam_type' => Examination::TYPE_QUIZ,
+        'exam_date' => '2026-02-15',
+    ]);
+
+    $wrongType = makeExaminationManagementExamination($context, [
+        'title' => 'UNIQUE FILTER OTHER TYPE',
+        'exam_type' => Examination::TYPE_MIDTERM,
+        'exam_date' => '2026-02-15',
+    ]);
+
+    $wrongDate = makeExaminationManagementExamination($context, [
+        'title' => 'UNIQUE FILTER OTHER DATE',
+        'exam_type' => Examination::TYPE_QUIZ,
+        'exam_date' => '2026-03-15',
+    ]);
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'search' => 'UNIQUE FILTER',
+            'exam_type' => Examination::TYPE_QUIZ,
+            'teacher_id' => $context['teacher']->id,
+            'academic_class_id' => $context['academicClass']->id,
+            'subject_id' => $context['subject']->id,
+            'exam_from' => '2026-02-01',
+            'exam_to' => '2026-02-28',
+        ]))
+        ->assertOk()
+        ->assertViewHas('examinations', function ($examinations) use ($matching, $wrongType, $wrongDate): bool {
+            return $examinations->contains('id', $matching->id)
+                && ! $examinations->contains('id', $wrongType->id)
+                && ! $examinations->contains('id', $wrongDate->id);
+        });
+});
+
+it('rejects invalid examination filter values', function (): void {
+    $context = makeExaminationManagementContext();
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'exam_type' => 'invalid_type',
+        ]))
+        ->assertSessionHasErrors('exam_type');
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'teacher_id' => 999999,
+        ]))
+        ->assertSessionHasErrors('teacher_id');
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'exam_from' => '2026-03-01',
+            'exam_to' => '2026-02-01',
+        ]))
+        ->assertSessionHasErrors('exam_to');
+});
+
+it('preserves examination filters during pagination', function (): void {
+    $context = makeExaminationManagementContext();
+
+    Examination::factory()
+        ->count(12)
+        ->create([
+            'teaching_assignment_id' => $context['teachingAssignment']->id,
+            'created_by' => $context['admin']->id,
+            'exam_type' => Examination::TYPE_QUIZ,
+            'exam_date' => '2026-04-15',
+        ]);
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'exam_type' => Examination::TYPE_QUIZ,
+            'teacher_id' => $context['teacher']->id,
+            'page' => 2,
+        ]))
+        ->assertOk()
+        ->assertViewHas('examinations', function ($examinations) use ($context): bool {
+            $url = $examinations->url(1);
+
+            return $examinations->total() === 12
+                && $examinations->currentPage() === 2
+                && str_contains($url, 'exam_type=quiz')
+                && str_contains($url, 'teacher_id='.$context['teacher']->id);
+        });
+});
+
+it('displays historical examinations with archived teaching assignment entities', function (): void {
+    $context = makeExaminationManagementContext();
+
+    $examination = makeExaminationManagementExamination($context);
+
+    $context['teacher']->delete();
+    $context['academicClass']->delete();
+    $context['subject']->delete();
+
+    $this->actingAs($context['admin'])
+        ->get(route('examinations.index', [
+            'teacher_id' => $context['teacher']->id,
+            'academic_class_id' => $context['academicClass']->id,
+            'subject_id' => $context['subject']->id,
+        ]))
+        ->assertOk()
+        ->assertViewHas('examinations', function ($examinations) use ($examination): bool {
+            $record = $examinations->firstWhere('id', $examination->id);
+
+            return $record !== null
+                && $record->teachingAssignment->teacher?->id === $examination->teachingAssignment->teacher_id
+                && $record->teachingAssignment->academicClass?->id === $examination->teachingAssignment->academic_class_id
+                && $record->teachingAssignment->subject?->id === $examination->teachingAssignment->subject_id;
+        });
+});

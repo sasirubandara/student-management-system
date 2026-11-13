@@ -1019,3 +1019,123 @@ it('prevents staff users from removing individual attendance records', function 
         'id' => $attendance->id,
     ]);
 });
+
+/*
+|--------------------------------------------------------------------------
+| Attendance Filtering and Pagination Tests (Step 3)
+|--------------------------------------------------------------------------
+*/
+
+it('filters attendance sessions by teacher class and subject', function (): void {
+    $context = makeAttendanceManagementContext();
+
+    $session = makeAttendanceManagementSession($context);
+
+    foreach ([
+        'teacher_id' => $context['teacher']->id,
+        'academic_class_id' => $context['academicClass']->id,
+        'subject_id' => $context['subject']->id,
+    ] as $filter => $value) {
+        $this->actingAs($context['admin'])
+            ->get(route('attendance-sessions.index', [
+                $filter => $value,
+            ]))
+            ->assertOk()
+            ->assertViewHas('attendanceSessions', function ($sessions) use ($session): bool {
+                return $sessions->contains('id', $session->id);
+            });
+    }
+});
+
+it('filters attendance sessions by inclusive date range', function (): void {
+    $context = makeAttendanceManagementContext();
+
+    $before = makeAttendanceManagementSession($context, '2026-01-09');
+    $start = makeAttendanceManagementSession($context, '2026-01-10');
+    $end = makeAttendanceManagementSession($context, '2026-01-20');
+    $after = makeAttendanceManagementSession($context, '2026-01-21');
+
+    $this->actingAs($context['admin'])
+        ->get(route('attendance-sessions.index', [
+            'attendance_from' => '2026-01-10',
+            'attendance_to' => '2026-01-20',
+        ]))
+        ->assertOk()
+        ->assertViewHas('attendanceSessions', function ($sessions) use ($before, $start, $end, $after): bool {
+            return ! $sessions->contains('id', $before->id)
+                && $sessions->contains('id', $start->id)
+                && $sessions->contains('id', $end->id)
+                && ! $sessions->contains('id', $after->id);
+        });
+});
+
+it('combines attendance relationship and date filters', function (): void {
+    $context = makeAttendanceManagementContext();
+
+    $matching = makeAttendanceManagementSession($context, '2026-02-15');
+    $outsideRange = makeAttendanceManagementSession($context, '2026-03-15');
+
+    $this->actingAs($context['admin'])
+        ->get(route('attendance-sessions.index', [
+            'teacher_id' => $context['teacher']->id,
+            'academic_class_id' => $context['academicClass']->id,
+            'subject_id' => $context['subject']->id,
+            'attendance_from' => '2026-02-01',
+            'attendance_to' => '2026-02-28',
+        ]))
+        ->assertOk()
+        ->assertViewHas('attendanceSessions', function ($sessions) use ($matching, $outsideRange): bool {
+            return $sessions->contains('id', $matching->id)
+                && ! $sessions->contains('id', $outsideRange->id);
+        });
+});
+
+it('rejects invalid attendance filter values', function (): void {
+    $context = makeAttendanceManagementContext();
+
+    $this->actingAs($context['admin'])
+        ->get(route('attendance-sessions.index', [
+            'teacher_id' => 999999,
+        ]))
+        ->assertSessionHasErrors('teacher_id');
+
+    $this->actingAs($context['admin'])
+        ->get(route('attendance-sessions.index', [
+            'subject_id' => 'invalid',
+        ]))
+        ->assertSessionHasErrors('subject_id');
+
+    $this->actingAs($context['admin'])
+        ->get(route('attendance-sessions.index', [
+            'attendance_from' => '2026-03-01',
+            'attendance_to' => '2026-02-01',
+        ]))
+        ->assertSessionHasErrors('attendance_to');
+});
+
+it('preserves attendance filters during pagination', function (): void {
+    $context = makeAttendanceManagementContext();
+
+    for ($i = 0; $i < 11; $i++) {
+        makeAttendanceManagementSession(
+            $context,
+            now()->subDays($i)->toDateString()
+        );
+    }
+
+    $this->actingAs($context['admin'])
+        ->get(route('attendance-sessions.index', [
+            'teacher_id' => $context['teacher']->id,
+            'subject_id' => $context['subject']->id,
+            'page' => 2,
+        ]))
+        ->assertOk()
+        ->assertViewHas('attendanceSessions', function ($sessions) use ($context): bool {
+            $url = $sessions->url(1);
+
+            return $sessions->total() === 11
+                && $sessions->currentPage() === 2
+                && str_contains($url, 'teacher_id='.$context['teacher']->id)
+                && str_contains($url, 'subject_id='.$context['subject']->id);
+        });
+});

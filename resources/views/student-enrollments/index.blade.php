@@ -44,15 +44,14 @@
             </div>
         @endif
 
-        <!-- Search form -->
+        <!-- Search and filter form -->
         <section class="students-search-section">
-
-            <form action="{{ route('student-enrollments.index') }}"
-                  method="GET"
-                  class="students-search">
-
+            <form
+                action="{{ route('student-enrollments.index') }}"
+                method="GET"
+                class="students-search advanced-filters"
+            >
                 <div class="students-search__input-wrapper">
-
                     <label for="enrollment-search" class="sr-only">
                         Search enrollments
                     </label>
@@ -65,29 +64,113 @@
                         placeholder="Search by student number, name, class or status..."
                         maxlength="255"
                     >
+                </div>
 
+                <div>
+                    <label for="enrollment-class">Academic class</label>
+
+                    <select
+                        id="enrollment-class"
+                        name="academic_class_id"
+                    >
+                        <option value="">All classes</option>
+
+                        @foreach ($academicClasses as $academicClass)
+                            <option
+                                value="{{ $academicClass->id }}"
+                                @selected((string) $academicClassId === (string) $academicClass->id)
+                            >
+                                {{ $academicClass->name }}
+                                ({{ $academicClass->academic_year }})
+                                @if ($academicClass->trashed())
+                                    — Archived
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label for="enrollment-status">Enrollment status</label>
+
+                    <select id="enrollment-status" name="status">
+                        <option value="">All statuses</option>
+
+                        <option
+                            value="active"
+                            @selected($status === 'active')
+                        >
+                            Active
+                        </option>
+
+                        <option
+                            value="completed"
+                            @selected($status === 'completed')
+                        >
+                            Completed
+                        </option>
+
+                        <option
+                            value="withdrawn"
+                            @selected($status === 'withdrawn')
+                        >
+                            Withdrawn
+                        </option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="enrollment-from">Enrolled from</label>
+
+                    <input
+                        type="date"
+                        id="enrollment-from"
+                        name="enrolled_from"
+                        value="{{ $enrolledFrom }}"
+                    >
+                </div>
+
+                <div>
+                    <label for="enrollment-to">Enrolled to</label>
+
+                    <input
+                        type="date"
+                        id="enrollment-to"
+                        name="enrolled_to"
+                        value="{{ $enrolledTo }}"
+                    >
                 </div>
 
                 <button type="submit" class="students-page__button">
-                    Search
+                    Apply Filters
                 </button>
 
-                @if ($search !== '')
-                    <a href="{{ route('student-enrollments.index') }}"
-                       class="students-search__clear">
-                        Clear Search
+                @if ($hasFilters)
+                    <a
+                        href="{{ route('student-enrollments.index') }}"
+                        class="students-search__clear"
+                    >
+                        Clear Filters
                     </a>
                 @endif
-
             </form>
 
+            @if ($errors->any())
+                <div role="alert">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </section>
 
         <!-- Enrollment summary -->
         <section class="students-page__summary">
 
             <p>
-                {{ $search !== '' ? 'Matching enrollments:' : 'Total enrollments:' }}
+                {{ $hasFilters ? 'Matching enrollments:' : 'Total enrollments:' }}
 
                 <strong>{{ $enrollments->total() }}</strong>
             </p>
@@ -106,14 +189,21 @@
 
             <section class="students-page__empty">
 
-                @if ($search !== '')
+                @if ($hasFilters)
 
                     <h2>No Matching Enrollments</h2>
 
-                    <p>
-                        No enrollments matched your search.
-                        Try another student, class or status.
-                    </p>
+                    @if ($search !== '')
+                        <p>
+                            No enrollments matched your search.
+                            Try another student, class or status.
+                        </p>
+                    @else
+                        <p>
+                            No enrollments matched your filters.
+                            Try adjusting your criteria.
+                        </p>
+                    @endif
 
                     <a href="{{ route('student-enrollments.index') }}"
                        class="students-page__button">

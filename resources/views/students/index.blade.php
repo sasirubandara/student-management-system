@@ -54,13 +54,14 @@
         {{ session('success') }}
     </div>
         @endif
-        <!-- Search form -->
+
+        <!-- Search and filter form -->
         <section class="students-search-section">
-
-            <form action="{{ route('students.index') }}"
-                  method="GET"
-                  class="students-search">
-
+            <form
+                action="{{ route('students.index') }}"
+                method="GET"
+                class="students-search advanced-filters"
+            >
                 <div class="students-search__input-wrapper">
                     <label for="student-search" class="sr-only">
                         Search students
@@ -76,25 +77,78 @@
                     >
                 </div>
 
+                <div>
+                    <label for="student-status">Status</label>
+                    <select id="student-status" name="status">
+                        <option value="">All statuses</option>
+                        <option
+                            value="active"
+                            @selected($status === 'active')
+                        >
+                            Active
+                        </option>
+                        <option
+                            value="inactive"
+                            @selected($status === 'inactive')
+                        >
+                            Inactive
+                        </option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="student-enrolled-from">
+                        Enrolled from
+                    </label>
+                    <input
+                        type="date"
+                        id="student-enrolled-from"
+                        name="enrolled_from"
+                        value="{{ $enrolledFrom }}"
+                    >
+                </div>
+
+                <div>
+                    <label for="student-enrolled-to">
+                        Enrolled to
+                    </label>
+                    <input
+                        type="date"
+                        id="student-enrolled-to"
+                        name="enrolled_to"
+                        value="{{ $enrolledTo }}"
+                    >
+                </div>
+
                 <button type="submit" class="students-page__button">
-                    Search
+                    Apply Filters
                 </button>
 
-                @if ($search !== '')
-                    <a href="{{ route('students.index') }}"
-                       class="students-search__clear">
-                        Clear Search
+                @if ($hasFilters)
+                    <a
+                        href="{{ route('students.index') }}"
+                        class="students-search__clear"
+                    >
+                        Clear Filters
                     </a>
                 @endif
-
             </form>
 
+            @if ($errors->any())
+                <div role="alert">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </section>
 
         <!-- Student count -->
         <section class="students-page__summary">
             <p>
-                {{ $search !== '' ? 'Matching students:' : 'Total registered students:' }}
+                {{ $hasFilters ? 'Matching students:' : 'Total registered students:' }}
                 <strong>{{ $students->total() }}</strong>
             </p>
 
@@ -111,12 +165,19 @@
 
             <section class="students-page__empty">
 
-                @if ($search !== '')
+                @if ($hasFilters)
                     <h2>No Matching Students</h2>
-                    <p>
-                        No students matched your search.
-                        Try another student number, name or email.
-                    </p>
+                    @if ($search !== '')
+                        <p>
+                            No students matched your search.
+                            Try another student number, name or email.
+                        </p>
+                    @else
+                        <p>
+                            No students matched your filters.
+                            Try adjusting your criteria.
+                        </p>
+                    @endif
 
                     <a href="{{ route('students.index') }}"
                        class="students-page__button">

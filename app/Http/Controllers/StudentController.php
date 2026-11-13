@@ -16,13 +16,33 @@ use Illuminate\View\View;
 class StudentController extends Controller
 {
     /**
-     * Display active students with optional search.
+     * Display students with optional search, status, and date filters.
      */
     public function index(Request $request): View
     {
         Gate::authorize('viewAny', Student::class);
 
-        $search = trim((string) $request->query('search', ''));
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'status' => [
+                'nullable',
+                Rule::in([
+                    Student::STATUS_ACTIVE,
+                    Student::STATUS_INACTIVE,
+                ]),
+            ],
+            'enrolled_from' => ['nullable', 'date_format:Y-m-d'],
+            'enrolled_to' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:enrolled_from',
+            ],
+        ]);
+
+        $search = trim($validated['search'] ?? '');
+        $status = $validated['status'] ?? '';
+        $enrolledFrom = $validated['enrolled_from'] ?? '';
+        $enrolledTo = $validated['enrolled_to'] ?? '';
 
         $students = Student::query()
             ->when($search !== '', function (Builder $query) use ($search): void {
@@ -35,11 +55,32 @@ class StudentController extends Controller
                         ->orWhere('email', 'like', $term);
                 });
             })
+            ->when($status !== '', function (Builder $query) use ($status): void {
+                $query->where('status', $status);
+            })
+            ->when($enrolledFrom !== '', function (Builder $query) use ($enrolledFrom): void {
+                $query->whereDate('enrollment_date', '>=', $enrolledFrom);
+            })
+            ->when($enrolledTo !== '', function (Builder $query) use ($enrolledTo): void {
+                $query->whereDate('enrollment_date', '<=', $enrolledTo);
+            })
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        return view('students.index', compact('students', 'search'));
+        $hasFilters = $search !== ''
+            || $status !== ''
+            || $enrolledFrom !== ''
+            || $enrolledTo !== '';
+
+        return view('students.index', compact(
+            'students',
+            'search',
+            'status',
+            'enrolledFrom',
+            'enrolledTo',
+            'hasFilters'
+        ));
     }
 
     /**

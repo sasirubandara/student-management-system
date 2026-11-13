@@ -51,15 +51,14 @@
             </div>
         @endif
 
-        <!-- Search form -->
+        <!-- Search and filter form -->
         <section class="students-search-section">
-
-            <form action="{{ route('teachers.index') }}"
-                  method="GET"
-                  class="students-search">
-
+            <form
+                action="{{ route('teachers.index') }}"
+                method="GET"
+                class="students-search advanced-filters"
+            >
                 <div class="students-search__input-wrapper">
-
                     <label for="teacher-search" class="sr-only">
                         Search teachers
                     </label>
@@ -72,29 +71,85 @@
                         placeholder="Search by teacher number, name or email..."
                         maxlength="255"
                     >
+                </div>
 
+                <div>
+                    <label for="teacher-status">Employment status</label>
+                    <select id="teacher-status" name="status">
+                        <option value="">All statuses</option>
+
+                        <option
+                            value="active"
+                            @selected($status === 'active')
+                        >
+                            Active
+                        </option>
+
+                        <option
+                            value="inactive"
+                            @selected($status === 'inactive')
+                        >
+                            Inactive
+                        </option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="teacher-employed-from">
+                        Employed from
+                    </label>
+
+                    <input
+                        type="date"
+                        id="teacher-employed-from"
+                        name="employed_from"
+                        value="{{ $employedFrom }}"
+                    >
+                </div>
+
+                <div>
+                    <label for="teacher-employed-to">
+                        Employed to
+                    </label>
+
+                    <input
+                        type="date"
+                        id="teacher-employed-to"
+                        name="employed_to"
+                        value="{{ $employedTo }}"
+                    >
                 </div>
 
                 <button type="submit" class="students-page__button">
-                    Search
+                    Apply Filters
                 </button>
 
-                @if ($search !== '')
-                    <a href="{{ route('teachers.index') }}"
-                       class="students-search__clear">
-                        Clear Search
+                @if ($hasFilters)
+                    <a
+                        href="{{ route('teachers.index') }}"
+                        class="students-search__clear"
+                    >
+                        Clear Filters
                     </a>
                 @endif
-
             </form>
 
+            @if ($errors->any())
+                <div role="alert">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </section>
 
         <!-- Teacher summary -->
         <section class="students-page__summary">
 
             <p>
-                {{ $search !== '' ? 'Matching teachers:' : 'Total registered teachers:' }}
+                {{ $hasFilters ? 'Matching teachers:' : 'Total registered teachers:' }}
 
                 <strong>{{ $teachers->total() }}</strong>
             </p>
@@ -113,14 +168,21 @@
 
             <section class="students-page__empty">
 
-                @if ($search !== '')
+                @if ($hasFilters)
 
                     <h2>No Matching Teachers</h2>
 
-                    <p>
-                        No teachers matched your search.
-                        Try another teacher number, name or email.
-                    </p>
+                    @if ($search !== '')
+                        <p>
+                            No teachers matched your search.
+                            Try another teacher number, name or email.
+                        </p>
+                    @else
+                        <p>
+                            No teachers matched your filters.
+                            Try adjusting your criteria.
+                        </p>
+                    @endif
 
                     <a href="{{ route('teachers.index') }}"
                        class="students-page__button">

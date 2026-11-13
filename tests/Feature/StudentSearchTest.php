@@ -75,7 +75,7 @@ it('preserves the search query during pagination', function () {
         Student::create([
             'student_number' => sprintf('SEARCH-%03d', $number),
             'first_name' => 'Test',
-            'last_name' => 'Student ' . $number,
+            'last_name' => 'Student '.$number,
             'enrollment_date' => '2026-01-15',
             'status' => 'active',
         ]);
@@ -91,5 +91,126 @@ it('preserves the search query during pagination', function () {
             return $students->total() === 11
                 && $students->currentPage() === 2
                 && str_contains($students->url(1), 'search=SEARCH');
+        });
+});
+
+it('filters students by status', function () {
+    Student::factory()->create([
+        'student_number' => 'FILTER-ACTIVE',
+        'status' => Student::STATUS_ACTIVE,
+    ]);
+
+    Student::factory()->create([
+        'student_number' => 'FILTER-INACTIVE',
+        'status' => Student::STATUS_INACTIVE,
+    ]);
+
+    $this->get(route('students.index', [
+        'status' => Student::STATUS_ACTIVE,
+    ]))
+        ->assertOk()
+        ->assertSee('FILTER-ACTIVE')
+        ->assertDontSee('FILTER-INACTIVE');
+});
+
+it('filters students by enrollment date range inclusively', function () {
+    Student::factory()->create([
+        'student_number' => 'DATE-BEFORE',
+        'enrollment_date' => '2026-01-09',
+    ]);
+
+    Student::factory()->create([
+        'student_number' => 'DATE-START',
+        'enrollment_date' => '2026-01-10',
+    ]);
+
+    Student::factory()->create([
+        'student_number' => 'DATE-END',
+        'enrollment_date' => '2026-01-20',
+    ]);
+
+    Student::factory()->create([
+        'student_number' => 'DATE-AFTER',
+        'enrollment_date' => '2026-01-21',
+    ]);
+
+    $this->get(route('students.index', [
+        'enrolled_from' => '2026-01-10',
+        'enrolled_to' => '2026-01-20',
+    ]))
+        ->assertOk()
+        ->assertSee('DATE-START')
+        ->assertSee('DATE-END')
+        ->assertDontSee('DATE-BEFORE')
+        ->assertDontSee('DATE-AFTER');
+});
+
+it('combines search status and date filters', function () {
+    Student::factory()->create([
+        'student_number' => 'COMBINED-MATCH',
+        'first_name' => 'UniqueFilterName',
+        'status' => Student::STATUS_ACTIVE,
+        'enrollment_date' => '2026-02-15',
+    ]);
+
+    Student::factory()->create([
+        'student_number' => 'COMBINED-WRONG-STATUS',
+        'first_name' => 'UniqueFilterName',
+        'status' => Student::STATUS_INACTIVE,
+        'enrollment_date' => '2026-02-15',
+    ]);
+
+    Student::factory()->create([
+        'student_number' => 'COMBINED-WRONG-DATE',
+        'first_name' => 'UniqueFilterName',
+        'status' => Student::STATUS_ACTIVE,
+        'enrollment_date' => '2026-03-15',
+    ]);
+
+    $this->get(route('students.index', [
+        'search' => 'UniqueFilterName',
+        'status' => Student::STATUS_ACTIVE,
+        'enrolled_from' => '2026-02-01',
+        'enrolled_to' => '2026-02-28',
+    ]))
+        ->assertOk()
+        ->assertSee('COMBINED-MATCH')
+        ->assertDontSee('COMBINED-WRONG-STATUS')
+        ->assertDontSee('COMBINED-WRONG-DATE');
+});
+
+it('rejects invalid student filter values', function () {
+    $this->get(route('students.index', [
+        'status' => 'unknown',
+    ]))->assertSessionHasErrors('status');
+
+    $this->get(route('students.index', [
+        'enrolled_from' => '2026-03-01',
+        'enrolled_to' => '2026-02-01',
+    ]))->assertSessionHasErrors('enrolled_to');
+});
+
+it('preserves advanced filters during pagination', function () {
+    foreach (range(1, 11) as $number) {
+        Student::factory()->create([
+            'student_number' => sprintf('PAGED-%03d', $number),
+            'status' => Student::STATUS_ACTIVE,
+            'enrollment_date' => '2026-04-15',
+        ]);
+    }
+
+    $this->get(route('students.index', [
+        'status' => Student::STATUS_ACTIVE,
+        'enrolled_from' => '2026-04-01',
+        'page' => 2,
+    ]))
+        ->assertOk()
+        ->assertViewHas('students', function ($students) {
+            $url = $students->url(1);
+
+            return $students->total() === 11
+                && $students->currentPage() === 2
+                && str_contains($url, 'status=active')
+                && str_contains($url, 'enrolled_from=2026-04-01');
         });
 });

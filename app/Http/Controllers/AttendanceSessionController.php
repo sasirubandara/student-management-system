@@ -16,19 +16,50 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AttendanceSessionController extends Controller
 {
     /**
-     * Display attendance sessions with optional search.
+     * Display attendance sessions with optional search and filters.
      */
     public function index(Request $request): View
     {
         Gate::authorize('viewAny', AttendanceSession::class);
 
-        $search = trim((string) $request->query('search', ''));
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'teacher_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('teachers', 'id'),
+            ],
+            'academic_class_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('academic_classes', 'id'),
+            ],
+            'subject_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('subjects', 'id'),
+            ],
+            'attendance_from' => ['nullable', 'date_format:Y-m-d'],
+            'attendance_to' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:attendance_from',
+            ],
+        ]);
+
+        $search = trim($validated['search'] ?? '');
+        $teacherId = $validated['teacher_id'] ?? '';
+        $academicClassId = $validated['academic_class_id'] ?? '';
+        $subjectId = $validated['subject_id'] ?? '';
+        $attendanceFrom = $validated['attendance_from'] ?? '';
+        $attendanceTo = $validated['attendance_to'] ?? '';
 
         $attendanceSessions = AttendanceSession::query()
             ->with([
@@ -67,13 +98,83 @@ class AttendanceSessionController extends Controller
                         ->orWhereDate('attendance_date', 'like', $term);
                 });
             })
+            ->when(
+                $teacherId !== '' || $academicClassId !== '' || $subjectId !== '',
+                function (Builder $query) use (
+                    $teacherId,
+                    $academicClassId,
+                    $subjectId
+                ): void {
+                    $query->whereHas(
+                        'teachingAssignment',
+                        function (Builder $assignmentQuery) use (
+                            $teacherId,
+                            $academicClassId,
+                            $subjectId
+                        ): void {
+                            if ($teacherId !== '') {
+                                $assignmentQuery->where('teacher_id', $teacherId);
+                            }
+
+                            if ($academicClassId !== '') {
+                                $assignmentQuery->where(
+                                    'academic_class_id',
+                                    $academicClassId
+                                );
+                            }
+
+                            if ($subjectId !== '') {
+                                $assignmentQuery->where('subject_id', $subjectId);
+                            }
+                        }
+                    );
+                }
+            )
+            ->when($attendanceFrom !== '', function (Builder $query) use ($attendanceFrom): void {
+                $query->whereDate('attendance_date', '>=', $attendanceFrom);
+            })
+            ->when($attendanceTo !== '', function (Builder $query) use ($attendanceTo): void {
+                $query->whereDate('attendance_date', '<=', $attendanceTo);
+            })
             ->latest('attendance_date')
             ->paginate(10)
             ->withQueryString();
 
+        $teachers = Teacher::withTrashed()
+            ->whereHas('teachingAssignments.attendanceSessions')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
+        $academicClasses = AcademicClass::withTrashed()
+            ->whereHas('teachingAssignments.attendanceSessions')
+            ->orderBy('name')
+            ->get();
+
+        $subjects = Subject::withTrashed()
+            ->whereHas('teachingAssignments.attendanceSessions')
+            ->orderBy('name')
+            ->get();
+
+        $hasFilters = $search !== ''
+            || $teacherId !== ''
+            || $academicClassId !== ''
+            || $subjectId !== ''
+            || $attendanceFrom !== ''
+            || $attendanceTo !== '';
+
         return view('attendance-sessions.index', compact(
             'attendanceSessions',
-            'search'
+            'teachers',
+            'academicClasses',
+            'subjects',
+            'search',
+            'teacherId',
+            'academicClassId',
+            'subjectId',
+            'attendanceFrom',
+            'attendanceTo',
+            'hasFilters'
         ));
     }
 

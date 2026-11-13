@@ -451,3 +451,172 @@ it('allows administrators to update enrollment information', function (): void {
 
     $response->assertSessionHas('success');
 });
+
+// Enrollment filtering, pagination, and archiving tests
+
+it('filters enrollments by academic class', function (): void {
+    $firstClass = AcademicClass::factory()->create();
+    $secondClass = AcademicClass::factory()->create();
+
+    $firstEnrollment = StudentEnrollment::factory()->create([
+        'academic_class_id' => $firstClass->id,
+    ]);
+
+    $secondEnrollment = StudentEnrollment::factory()->create([
+        'academic_class_id' => $secondClass->id,
+    ]);
+
+    $this->get(route('student-enrollments.index', [
+        'academic_class_id' => $firstClass->id,
+    ]))
+        ->assertOk()
+        ->assertViewHas('enrollments', function ($enrollments) use ($firstEnrollment, $secondEnrollment): bool {
+            return $enrollments->contains('id', $firstEnrollment->id)
+                && ! $enrollments->contains('id', $secondEnrollment->id);
+        });
+});
+
+it('filters enrollments by status', function (): void {
+    $active = StudentEnrollment::factory()->create([
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+    ]);
+
+    $completed = StudentEnrollment::factory()->create([
+        'status' => StudentEnrollment::STATUS_COMPLETED,
+    ]);
+
+    $this->get(route('student-enrollments.index', [
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+    ]))
+        ->assertOk()
+        ->assertViewHas('enrollments', function ($enrollments) use ($active, $completed): bool {
+            return $enrollments->contains('id', $active->id)
+                && ! $enrollments->contains('id', $completed->id);
+        });
+});
+
+it('filters enrollments by date range inclusively', function (): void {
+    $before = StudentEnrollment::factory()->create([
+        'enrollment_date' => '2026-01-09',
+    ]);
+
+    $start = StudentEnrollment::factory()->create([
+        'enrollment_date' => '2026-01-10',
+    ]);
+
+    $end = StudentEnrollment::factory()->create([
+        'enrollment_date' => '2026-01-20',
+    ]);
+
+    $after = StudentEnrollment::factory()->create([
+        'enrollment_date' => '2026-01-21',
+    ]);
+
+    $this->get(route('student-enrollments.index', [
+        'enrolled_from' => '2026-01-10',
+        'enrolled_to' => '2026-01-20',
+    ]))
+        ->assertOk()
+        ->assertViewHas('enrollments', function ($enrollments) use ($before, $start, $end, $after): bool {
+            return ! $enrollments->contains('id', $before->id)
+                && $enrollments->contains('id', $start->id)
+                && $enrollments->contains('id', $end->id)
+                && ! $enrollments->contains('id', $after->id);
+        });
+});
+
+it('combines enrollment class status and date filters', function (): void {
+    $academicClass = AcademicClass::factory()->create();
+
+    $matching = StudentEnrollment::factory()->create([
+        'academic_class_id' => $academicClass->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+        'enrollment_date' => '2026-02-15',
+    ]);
+
+    $wrongStatus = StudentEnrollment::factory()->create([
+        'academic_class_id' => $academicClass->id,
+        'status' => StudentEnrollment::STATUS_WITHDRAWN,
+        'enrollment_date' => '2026-02-15',
+    ]);
+
+    $wrongDate = StudentEnrollment::factory()->create([
+        'academic_class_id' => $academicClass->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+        'enrollment_date' => '2026-03-15',
+    ]);
+
+    $this->get(route('student-enrollments.index', [
+        'academic_class_id' => $academicClass->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+        'enrolled_from' => '2026-02-01',
+        'enrolled_to' => '2026-02-28',
+    ]))
+        ->assertOk()
+        ->assertViewHas('enrollments', function ($enrollments) use ($matching, $wrongStatus, $wrongDate): bool {
+            return $enrollments->contains('id', $matching->id)
+                && ! $enrollments->contains('id', $wrongStatus->id)
+                && ! $enrollments->contains('id', $wrongDate->id);
+        });
+});
+
+it('rejects invalid enrollment filter values', function (): void {
+    $this->get(route('student-enrollments.index', [
+        'status' => 'invalid',
+    ]))->assertSessionHasErrors('status');
+
+    $this->get(route('student-enrollments.index', [
+        'academic_class_id' => 999999,
+    ]))->assertSessionHasErrors('academic_class_id');
+
+    $this->get(route('student-enrollments.index', [
+        'enrolled_from' => '2026-03-01',
+        'enrolled_to' => '2026-02-01',
+    ]))->assertSessionHasErrors('enrolled_to');
+});
+
+it('preserves enrollment filters during pagination', function (): void {
+    $academicClass = AcademicClass::factory()->create();
+
+    foreach (range(1, 11) as $number) {
+        StudentEnrollment::factory()->create([
+            'academic_class_id' => $academicClass->id,
+            'status' => StudentEnrollment::STATUS_ACTIVE,
+            'enrollment_date' => '2026-04-15',
+        ]);
+    }
+
+    $this->get(route('student-enrollments.index', [
+        'academic_class_id' => $academicClass->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+        'page' => 2,
+    ]))
+        ->assertOk()
+        ->assertViewHas('enrollments', function ($enrollments) use ($academicClass): bool {
+            $url = $enrollments->url(1);
+
+            return $enrollments->total() === 11
+                && $enrollments->currentPage() === 2
+                && str_contains($url, 'academic_class_id='.$academicClass->id)
+                && str_contains($url, 'status=active');
+        });
+});
+
+it('allows filtering enrollments belonging to archived classes', function (): void {
+    $academicClass = AcademicClass::factory()->create();
+
+    $enrollment = StudentEnrollment::factory()->create([
+        'academic_class_id' => $academicClass->id,
+    ]);
+
+    $academicClass->delete();
+
+    $this->get(route('student-enrollments.index', [
+        'academic_class_id' => $academicClass->id,
+    ]))
+        ->assertOk()
+        ->assertViewHas('enrollments', function ($enrollments) use ($enrollment): bool {
+            return $enrollments->contains('id', $enrollment->id);
+        })
+        ->assertSee('Archived');
+});

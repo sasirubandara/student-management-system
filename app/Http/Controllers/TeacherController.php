@@ -15,13 +15,33 @@ use Illuminate\View\View;
 class TeacherController extends Controller
 {
     /**
-     * Display active teachers with optional search.
+     * Display teachers with optional search and filters.
      */
     public function index(Request $request): View
     {
         Gate::authorize('viewAny', Teacher::class);
 
-        $search = trim((string) $request->query('search', ''));
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'status' => [
+                'nullable',
+                Rule::in([
+                    Teacher::STATUS_ACTIVE,
+                    Teacher::STATUS_INACTIVE,
+                ]),
+            ],
+            'employed_from' => ['nullable', 'date_format:Y-m-d'],
+            'employed_to' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:employed_from',
+            ],
+        ]);
+
+        $search = trim($validated['search'] ?? '');
+        $status = $validated['status'] ?? '';
+        $employedFrom = $validated['employed_from'] ?? '';
+        $employedTo = $validated['employed_to'] ?? '';
 
         $teachers = Teacher::query()
             ->when($search !== '', function (Builder $query) use ($search): void {
@@ -34,11 +54,32 @@ class TeacherController extends Controller
                         ->orWhere('email', 'like', $term);
                 });
             })
+            ->when($status !== '', function (Builder $query) use ($status): void {
+                $query->where('status', $status);
+            })
+            ->when($employedFrom !== '', function (Builder $query) use ($employedFrom): void {
+                $query->whereDate('employment_date', '>=', $employedFrom);
+            })
+            ->when($employedTo !== '', function (Builder $query) use ($employedTo): void {
+                $query->whereDate('employment_date', '<=', $employedTo);
+            })
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
-        return view('teachers.index', compact('teachers', 'search'));
+        $hasFilters = $search !== ''
+            || $status !== ''
+            || $employedFrom !== ''
+            || $employedTo !== '';
+
+        return view('teachers.index', compact(
+            'teachers',
+            'search',
+            'status',
+            'employedFrom',
+            'employedTo',
+            'hasFilters'
+        ));
     }
 
     /**
