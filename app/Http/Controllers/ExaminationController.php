@@ -12,6 +12,7 @@ use App\Models\TeachingAssignment;
 use App\Services\AuditLogger;
 use App\Services\GradeCalculator;
 use App\Services\NotificationService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,42 @@ class ExaminationController extends Controller
     {
         Gate::authorize('viewAny', Examination::class);
 
-        $search = trim((string) $request->query('search', ''));
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'exam_type' => [
+                'nullable',
+                Rule::in(Examination::EXAM_TYPES),
+            ],
+            'teacher_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('teachers', 'id'),
+            ],
+            'academic_class_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('academic_classes', 'id'),
+            ],
+            'subject_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('subjects', 'id'),
+            ],
+            'exam_from' => ['nullable', 'date_format:Y-m-d'],
+            'exam_to' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:exam_from',
+            ],
+        ]);
+
+        $search = trim($validated['search'] ?? '');
+        $examType = $validated['exam_type'] ?? '';
+        $teacherId = $validated['teacher_id'] ?? '';
+        $academicClassId = $validated['academic_class_id'] ?? '';
+        $subjectId = $validated['subject_id'] ?? '';
+        $examFrom = $validated['exam_from'] ?? '';
+        $examTo = $validated['exam_to'] ?? '';
 
         $examinations = Examination::query()
             ->with([
@@ -40,45 +76,125 @@ class ExaminationController extends Controller
                 'creator',
             ])
             ->withCount('results')
-            ->when($search !== '', function ($query) use ($search): void {
-                $query->where(function ($query) use ($search): void {
-                    $query->where('title', 'like', "%{$search}%")
-                        ->orWhere('exam_type', 'like', "%{$search}%")
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $term = "%{$search}%";
+
+                $query->where(function (Builder $query) use ($term): void {
+                    $query->where('title', 'like', $term)
+                        ->orWhere('exam_type', 'like', $term)
                         ->orWhereHas(
                             'teachingAssignment.teacher',
-                            function ($teacherQuery) use ($search): void {
+                            function (Builder $teacherQuery) use ($term): void {
                                 $teacherQuery
-                                    ->where('teacher_number', 'like', "%{$search}%")
-                                    ->orWhere('first_name', 'like', "%{$search}%")
-                                    ->orWhere('last_name', 'like', "%{$search}%");
+                                    ->where('teacher_number', 'like', $term)
+                                    ->orWhere('first_name', 'like', $term)
+                                    ->orWhere('last_name', 'like', $term);
                             }
                         )
                         ->orWhereHas(
                             'teachingAssignment.academicClass',
-                            function ($classQuery) use ($search): void {
+                            function (Builder $classQuery) use ($term): void {
                                 $classQuery
-                                    ->where('name', 'like', "%{$search}%")
-                                    ->orWhere('code', 'like', "%{$search}%");
+                                    ->where('name', 'like', $term)
+                                    ->orWhere('code', 'like', $term);
                             }
                         )
                         ->orWhereHas(
                             'teachingAssignment.subject',
-                            function ($subjectQuery) use ($search): void {
+                            function (Builder $subjectQuery) use ($term): void {
                                 $subjectQuery
-                                    ->where('name', 'like', "%{$search}%")
-                                    ->orWhere('code', 'like', "%{$search}%");
+                                    ->where('name', 'like', $term)
+                                    ->orWhere('code', 'like', $term);
                             }
                         );
                 });
+            })
+            ->when($examType !== '', function (Builder $query) use ($examType): void {
+                $query->where('exam_type', $examType);
+            })
+            ->when(
+                $teacherId !== '' || $academicClassId !== '' || $subjectId !== '',
+                function (Builder $query) use (
+                    $teacherId,
+                    $academicClassId,
+                    $subjectId
+                ): void {
+                    $query->whereHas(
+                        'teachingAssignment',
+                        function (Builder $assignmentQuery) use (
+                            $teacherId,
+                            $academicClassId,
+                            $subjectId
+                        ): void {
+                            if ($teacherId !== '') {
+                                $assignmentQuery->where('teacher_id', $teacherId);
+                            }
+
+                            if ($academicClassId !== '') {
+                                $assignmentQuery->where(
+                                    'academic_class_id',
+                                    $academicClassId
+                                );
+                            }
+
+                            if ($subjectId !== '') {
+                                $assignmentQuery->where('subject_id', $subjectId);
+                            }
+                        }
+                    );
+                }
+            )
+            ->when($examFrom !== '', function (Builder $query) use ($examFrom): void {
+                $query->whereDate('exam_date', '>=', $examFrom);
+            })
+            ->when($examTo !== '', function (Builder $query) use ($examTo): void {
+                $query->whereDate('exam_date', '<=', $examTo);
             })
             ->latest('exam_date')
             ->latest('id')
             ->paginate(10)
             ->withQueryString();
 
+        $teachers = Teacher::withTrashed()
+            ->whereHas('teachingAssignments.examinations')
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
+        $academicClasses = AcademicClass::withTrashed()
+            ->whereHas('teachingAssignments.examinations')
+            ->orderBy('name')
+            ->get();
+
+        $subjects = Subject::withTrashed()
+            ->whereHas('teachingAssignments.examinations')
+            ->orderBy('name')
+            ->get();
+
+        $examTypes = Examination::EXAM_TYPES;
+
+        $hasFilters = $search !== ''
+            || $examType !== ''
+            || $teacherId !== ''
+            || $academicClassId !== ''
+            || $subjectId !== ''
+            || $examFrom !== ''
+            || $examTo !== '';
+
         return view('examinations.index', compact(
             'examinations',
-            'search'
+            'teachers',
+            'academicClasses',
+            'subjects',
+            'examTypes',
+            'search',
+            'examType',
+            'teacherId',
+            'academicClassId',
+            'subjectId',
+            'examFrom',
+            'examTo',
+            'hasFilters'
         ));
     }
 

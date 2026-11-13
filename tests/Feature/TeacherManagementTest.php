@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\Teacher;
 use App\Models\User;
 
@@ -367,7 +368,7 @@ it('allows administrators to update teacher information', function (): void {
     expect($teacher->fresh()->employment_date->toDateString())
         ->toBe('2021-03-15');
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'teacher.updated')
         ->where('auditable_id', $teacher->getKey())
         ->firstOrFail();
@@ -623,7 +624,7 @@ it('returns a 404 when attempting to restore a teacher who is not archived', fun
     ]);
 });
 
-// Teacher searching and pagination
+// Teacher searching, filtering, and pagination
 
 it('searches teachers by teacher number', function (): void {
     $teacher = Teacher::factory()->create([
@@ -675,5 +676,126 @@ it('paginates the teacher directory with ten teachers per page', function (): vo
         ->assertViewHas('teachers', function ($teachers): bool {
             return $teachers->total() === 11
                 && $teachers->perPage() === 10;
+        });
+});
+
+it('filters teachers by employment status', function (): void {
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-FILTER-ACTIVE',
+        'status' => Teacher::STATUS_ACTIVE,
+    ]);
+
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-FILTER-INACTIVE',
+        'status' => Teacher::STATUS_INACTIVE,
+    ]);
+
+    $this->get(route('teachers.index', [
+        'status' => Teacher::STATUS_ACTIVE,
+    ]))
+        ->assertOk()
+        ->assertSee('TCH-FILTER-ACTIVE')
+        ->assertDontSee('TCH-FILTER-INACTIVE');
+});
+
+it('filters teachers by employment date range inclusively', function (): void {
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-DATE-BEFORE',
+        'employment_date' => '2026-01-09',
+    ]);
+
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-DATE-START',
+        'employment_date' => '2026-01-10',
+    ]);
+
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-DATE-END',
+        'employment_date' => '2026-01-20',
+    ]);
+
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-DATE-AFTER',
+        'employment_date' => '2026-01-21',
+    ]);
+
+    $this->get(route('teachers.index', [
+        'employed_from' => '2026-01-10',
+        'employed_to' => '2026-01-20',
+    ]))
+        ->assertOk()
+        ->assertSee('TCH-DATE-START')
+        ->assertSee('TCH-DATE-END')
+        ->assertDontSee('TCH-DATE-BEFORE')
+        ->assertDontSee('TCH-DATE-AFTER');
+});
+
+it('combines teacher search status and date filters', function (): void {
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-COMBINED-MATCH',
+        'first_name' => 'UniqueTeacherFilter',
+        'status' => Teacher::STATUS_ACTIVE,
+        'employment_date' => '2026-02-15',
+    ]);
+
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-COMBINED-STATUS',
+        'first_name' => 'UniqueTeacherFilter',
+        'status' => Teacher::STATUS_INACTIVE,
+        'employment_date' => '2026-02-15',
+    ]);
+
+    Teacher::factory()->create([
+        'teacher_number' => 'TCH-COMBINED-DATE',
+        'first_name' => 'UniqueTeacherFilter',
+        'status' => Teacher::STATUS_ACTIVE,
+        'employment_date' => '2026-03-15',
+    ]);
+
+    $this->get(route('teachers.index', [
+        'search' => 'UniqueTeacherFilter',
+        'status' => Teacher::STATUS_ACTIVE,
+        'employed_from' => '2026-02-01',
+        'employed_to' => '2026-02-28',
+    ]))
+        ->assertOk()
+        ->assertSee('TCH-COMBINED-MATCH')
+        ->assertDontSee('TCH-COMBINED-STATUS')
+        ->assertDontSee('TCH-COMBINED-DATE');
+});
+
+it('rejects invalid teacher filter values', function (): void {
+    $this->get(route('teachers.index', [
+        'status' => 'unknown',
+    ]))->assertSessionHasErrors('status');
+
+    $this->get(route('teachers.index', [
+        'employed_from' => '2026-03-01',
+        'employed_to' => '2026-02-01',
+    ]))->assertSessionHasErrors('employed_to');
+});
+
+it('preserves teacher filters during pagination', function (): void {
+    foreach (range(1, 11) as $number) {
+        Teacher::factory()->create([
+            'teacher_number' => sprintf('TCH-PAGED-%03d', $number),
+            'status' => Teacher::STATUS_ACTIVE,
+            'employment_date' => '2026-04-15',
+        ]);
+    }
+
+    $this->get(route('teachers.index', [
+        'status' => Teacher::STATUS_ACTIVE,
+        'employed_from' => '2026-04-01',
+        'page' => 2,
+    ]))
+        ->assertOk()
+        ->assertViewHas('teachers', function ($teachers): bool {
+            $url = $teachers->url(1);
+
+            return $teachers->total() === 11
+                && $teachers->currentPage() === 2
+                && str_contains($url, 'status=active')
+                && str_contains($url, 'employed_from=2026-04-01');
         });
 });

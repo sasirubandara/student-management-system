@@ -336,6 +336,146 @@ body {
 }
 
 /* ========================================
+   ADVANCED SEARCH AND FILTERING
+======================================== */
+
+.students-search.advanced-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: 18px;
+    padding: 24px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+/* Filter fields */
+.advanced-filters > div {
+    min-width: 0;
+}
+
+.advanced-filters .students-search__input-wrapper {
+    grid-column: 1 / -1;
+    min-width: 0;
+    width: 100%;
+}
+
+/* Labels */
+.advanced-filters label:not(.sr-only) {
+    display: block;
+    margin-bottom: 8px;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* Search, dropdowns, and dates */
+.advanced-filters input,
+.advanced-filters select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #111827;
+    font: inherit;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.advanced-filters input::placeholder {
+    color: #6b7280;
+}
+
+.advanced-filters input:hover,
+.advanced-filters select:hover {
+    border-color: #9ca3af;
+}
+
+.advanced-filters input:focus-visible,
+.advanced-filters select:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+    border-color: #2563eb;
+}
+
+/* Action buttons */
+.advanced-filters > .students-page__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.advanced-filters > .students-search__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 10px 18px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #ffffff;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+.advanced-filters > .students-search__clear:hover {
+    background-color: #f9fafb;
+    border-color: #9ca3af;
+    text-decoration: none;
+}
+
+.advanced-filters > .students-page__button:focus-visible,
+.advanced-filters > .students-search__clear:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+}
+
+/* Tablet */
+@media (max-width: 900px) {
+    .students-search.advanced-filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        padding: 20px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .students-search.advanced-filters {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .advanced-filters .students-search__input-wrapper {
+        grid-column: auto;
+    }
+
+    .advanced-filters > .students-page__button,
+    .advanced-filters > .students-search__clear {
+        width: 100%;
+    }
+}
+
+/* ========================================
    STUDENT PROFILE PAGE
 ======================================== */
 

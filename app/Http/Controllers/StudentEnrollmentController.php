@@ -18,13 +18,40 @@ use Illuminate\View\View;
 class StudentEnrollmentController extends Controller
 {
     /**
-     * Display enrollments with optional search.
+     * Display enrollments with optional search and advanced filters.
      */
     public function index(Request $request): View
     {
         Gate::authorize('viewAny', StudentEnrollment::class);
 
-        $search = trim((string) $request->query('search', ''));
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'academic_class_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('academic_classes', 'id'),
+            ],
+            'status' => [
+                'nullable',
+                Rule::in([
+                    StudentEnrollment::STATUS_ACTIVE,
+                    StudentEnrollment::STATUS_COMPLETED,
+                    StudentEnrollment::STATUS_WITHDRAWN,
+                ]),
+            ],
+            'enrolled_from' => ['nullable', 'date_format:Y-m-d'],
+            'enrolled_to' => [
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:enrolled_from',
+            ],
+        ]);
+
+        $search = trim($validated['search'] ?? '');
+        $academicClassId = $validated['academic_class_id'] ?? '';
+        $status = $validated['status'] ?? '';
+        $enrolledFrom = $validated['enrolled_from'] ?? '';
+        $enrolledTo = $validated['enrolled_to'] ?? '';
 
         $enrollments = StudentEnrollment::query()
             ->with(['student', 'academicClass'])
@@ -44,13 +71,43 @@ class StudentEnrollmentController extends Controller
                         ->orWhere('status', 'like', $term);
                 });
             })
+            ->when($academicClassId !== '', function (Builder $query) use ($academicClassId): void {
+                $query->where('academic_class_id', $academicClassId);
+            })
+            ->when($status !== '', function (Builder $query) use ($status): void {
+                $query->where('status', $status);
+            })
+            ->when($enrolledFrom !== '', function (Builder $query) use ($enrolledFrom): void {
+                $query->whereDate('enrollment_date', '>=', $enrolledFrom);
+            })
+            ->when($enrolledTo !== '', function (Builder $query) use ($enrolledTo): void {
+                $query->whereDate('enrollment_date', '<=', $enrolledTo);
+            })
             ->latest()
             ->paginate(10)
             ->withQueryString();
 
+        $academicClasses = AcademicClass::withTrashed()
+            ->whereHas('enrollments')
+            ->orderBy('name')
+            ->orderBy('academic_year')
+            ->get();
+
+        $hasFilters = $search !== ''
+            || $academicClassId !== ''
+            || $status !== ''
+            || $enrolledFrom !== ''
+            || $enrolledTo !== '';
+
         return view('student-enrollments.index', compact(
             'enrollments',
-            'search'
+            'academicClasses',
+            'search',
+            'academicClassId',
+            'status',
+            'enrolledFrom',
+            'enrolledTo',
+            'hasFilters'
         ));
     }
 

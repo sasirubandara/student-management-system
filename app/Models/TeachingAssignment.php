@@ -25,7 +25,7 @@ class TeachingAssignment extends Model
      */
     public function teacher(): BelongsTo
     {
-        return $this->belongsTo(Teacher::class);
+        return $this->belongsTo(Teacher::class)->withTrashed();
     }
 
     /**
@@ -33,7 +33,7 @@ class TeachingAssignment extends Model
      */
     public function academicClass(): BelongsTo
     {
-        return $this->belongsTo(AcademicClass::class);
+        return $this->belongsTo(AcademicClass::class)->withTrashed();
     }
 
     /**
@@ -41,7 +41,7 @@ class TeachingAssignment extends Model
      */
     public function subject(): BelongsTo
     {
-        return $this->belongsTo(Subject::class);
+        return $this->belongsTo(Subject::class)->withTrashed();
     }
 
     /**

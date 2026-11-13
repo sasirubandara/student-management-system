@@ -41,11 +41,11 @@
         @endif
 
         <section class="students-search-section">
-
-            <form action="{{ route('attendance-sessions.index') }}"
-                  method="GET"
-                  class="students-search">
-
+            <form
+                action="{{ route('attendance-sessions.index') }}"
+                method="GET"
+                class="students-search advanced-filters"
+            >
                 <div class="students-search__input-wrapper">
                     <label for="attendance-search" class="sr-only">
                         Search attendance sessions
@@ -61,25 +61,114 @@
                     >
                 </div>
 
+                <div>
+                    <label for="attendance-teacher">Teacher</label>
+                    <select id="attendance-teacher" name="teacher_id">
+                        <option value="">All teachers</option>
+
+                        @foreach ($teachers as $teacher)
+                            <option
+                                value="{{ $teacher->id }}"
+                                @selected((string) $teacherId === (string) $teacher->id)
+                            >
+                                {{ $teacher->teacher_number }}
+                                — {{ $teacher->first_name }} {{ $teacher->last_name }}
+                                @if ($teacher->trashed())
+                                    (Archived)
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label for="attendance-class">Academic class</label>
+                    <select id="attendance-class" name="academic_class_id">
+                        <option value="">All classes</option>
+
+                        @foreach ($academicClasses as $academicClass)
+                            <option
+                                value="{{ $academicClass->id }}"
+                                @selected((string) $academicClassId === (string) $academicClass->id)
+                            >
+                                {{ $academicClass->name }}
+                                ({{ $academicClass->academic_year }})
+                                @if ($academicClass->trashed())
+                                    — Archived
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label for="attendance-subject">Subject</label>
+                    <select id="attendance-subject" name="subject_id">
+                        <option value="">All subjects</option>
+
+                        @foreach ($subjects as $subject)
+                            <option
+                                value="{{ $subject->id }}"
+                                @selected((string) $subjectId === (string) $subject->id)
+                            >
+                                {{ $subject->name }} ({{ $subject->code }})
+                                @if ($subject->trashed())
+                                    — Archived
+                                @endif
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label for="attendance-from">Attendance from</label>
+                    <input
+                        type="date"
+                        id="attendance-from"
+                        name="attendance_from"
+                        value="{{ $attendanceFrom }}"
+                    >
+                </div>
+
+                <div>
+                    <label for="attendance-to">Attendance to</label>
+                    <input
+                        type="date"
+                        id="attendance-to"
+                        name="attendance_to"
+                        value="{{ $attendanceTo }}"
+                    >
+                </div>
+
                 <button type="submit" class="students-page__button">
-                    Search
+                    Apply Filters
                 </button>
 
-                @if ($search !== '')
-                    <a href="{{ route('attendance-sessions.index') }}"
-                       class="students-search__clear">
-                        Clear Search
+                @if ($hasFilters)
+                    <a
+                        href="{{ route('attendance-sessions.index') }}"
+                        class="students-search__clear"
+                    >
+                        Clear Filters
                     </a>
                 @endif
-
             </form>
 
+            @if ($errors->any())
+                <div role="alert">
+                    <ul>
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </section>
 
         <section class="students-page__summary">
 
             <p>
-                {{ $search !== '' ? 'Matching attendance sessions:' : 'Total attendance sessions:' }}
+                {{ $hasFilters ? 'Matching attendance sessions:' : 'Total attendance sessions:' }}
                 <strong>{{ $attendanceSessions->total() }}</strong>
             </p>
 
@@ -97,8 +186,12 @@
 
                 <h2>No Attendance Sessions Found</h2>
 
-                @if ($search !== '')
-                    <p>No sessions matched your search. Try another search term.</p>
+                @if ($hasFilters)
+                    @if ($search !== '')
+                        <p>No sessions matched your search. Try another search term.</p>
+                    @else
+                        <p>No sessions matched your filters. Try adjusting your criteria.</p>
+                    @endif
 
                     <a href="{{ route('attendance-sessions.index') }}"
                        class="students-page__button">
