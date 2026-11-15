@@ -2,8 +2,9 @@
 
 use App\Services\GradeCalculator;
 use InvalidArgumentException;
+use Tests\TestCase;
 
-uses(Tests\TestCase::class);
+uses(TestCase::class);
 
 it('calculates grades using the configured grading scale', function (
     float $marks,

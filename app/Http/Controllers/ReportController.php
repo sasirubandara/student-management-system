@@ -50,64 +50,53 @@ class ReportController extends Controller
 
         $sessionsQuery = AttendanceSession::query()
             ->with([
-                'teachingAssignment.teacher' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'teachingAssignment.teacher' => fn ($relation) => $relation->withTrashed(),
 
-                'teachingAssignment.academicClass' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'teachingAssignment.academicClass' => fn ($relation) => $relation->withTrashed(),
 
-                'teachingAssignment.subject' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'teachingAssignment.subject' => fn ($relation) => $relation->withTrashed(),
             ])
             ->withCount([
                 'studentAttendances',
 
-                'studentAttendances as present_count' =>
-                    fn (Builder $query) => $query->where(
-                        'status',
-                        'present'
-                    ),
+                'studentAttendances as present_count' => fn (Builder $query) => $query->where(
+                    'status',
+                    'present'
+                ),
 
-                'studentAttendances as absent_count' =>
-                    fn (Builder $query) => $query->where(
-                        'status',
-                        'absent'
-                    ),
+                'studentAttendances as absent_count' => fn (Builder $query) => $query->where(
+                    'status',
+                    'absent'
+                ),
 
-                'studentAttendances as late_count' =>
-                    fn (Builder $query) => $query->where(
-                        'status',
-                        'late'
-                    ),
+                'studentAttendances as late_count' => fn (Builder $query) => $query->where(
+                    'status',
+                    'late'
+                ),
 
-                'studentAttendances as excused_count' =>
-                    fn (Builder $query) => $query->where(
-                        'status',
-                        'excused'
-                    ),
+                'studentAttendances as excused_count' => fn (Builder $query) => $query->where(
+                    'status',
+                    'excused'
+                ),
             ])
             ->whereHas('teachingAssignment', function (Builder $query) use ($filters): void {
                 $query
                     ->when(
                         $filters['academic_class_id'] ?? null,
-                        fn (Builder $query, $id) =>
-                            $query->where('academic_class_id', $id)
+                        fn (Builder $query, $id) => $query->where('academic_class_id', $id)
                     )
                     ->when(
                         $filters['subject_id'] ?? null,
-                        fn (Builder $query, $id) =>
-                            $query->where('subject_id', $id)
+                        fn (Builder $query, $id) => $query->where('subject_id', $id)
                     );
             })
             ->when(
                 $filters['start_date'] ?? null,
-                fn (Builder $query, $date) =>
-                    $query->whereDate('attendance_date', '>=', $date)
+                fn (Builder $query, $date) => $query->whereDate('attendance_date', '>=', $date)
             )
             ->when(
                 $filters['end_date'] ?? null,
-                fn (Builder $query, $date) =>
-                    $query->whereDate('attendance_date', '<=', $date)
+                fn (Builder $query, $date) => $query->whereDate('attendance_date', '<=', $date)
             );
 
         $totalSessions = (clone $sessionsQuery)->count();
@@ -137,23 +126,19 @@ class ReportController extends Controller
             )
             ->when(
                 $filters['academic_class_id'] ?? null,
-                fn ($query, $id) =>
-                    $query->where('teaching_assignments.academic_class_id', $id)
+                fn ($query, $id) => $query->where('teaching_assignments.academic_class_id', $id)
             )
             ->when(
                 $filters['subject_id'] ?? null,
-                fn ($query, $id) =>
-                    $query->where('teaching_assignments.subject_id', $id)
+                fn ($query, $id) => $query->where('teaching_assignments.subject_id', $id)
             )
             ->when(
                 $filters['start_date'] ?? null,
-                fn ($query, $date) =>
-                    $query->whereDate('attendance_sessions.attendance_date', '>=', $date)
+                fn ($query, $date) => $query->whereDate('attendance_sessions.attendance_date', '>=', $date)
             )
             ->when(
                 $filters['end_date'] ?? null,
-                fn ($query, $date) =>
-                    $query->whereDate('attendance_sessions.attendance_date', '<=', $date)
+                fn ($query, $date) => $query->whereDate('attendance_sessions.attendance_date', '<=', $date)
             );
 
         $attendanceSummary = $attendanceSummaryQuery
@@ -207,38 +192,31 @@ class ReportController extends Controller
 
         $examinationsQuery = Examination::query()
             ->with([
-                'teachingAssignment.teacher' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'teachingAssignment.teacher' => fn ($relation) => $relation->withTrashed(),
 
-                'teachingAssignment.academicClass' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'teachingAssignment.academicClass' => fn ($relation) => $relation->withTrashed(),
 
-                'teachingAssignment.subject' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'teachingAssignment.subject' => fn ($relation) => $relation->withTrashed(),
             ])
             ->withCount('results')
             ->whereHas('teachingAssignment', function (Builder $query) use ($filters): void {
                 $query
                     ->when(
                         $filters['academic_class_id'] ?? null,
-                        fn (Builder $query, $id) =>
-                            $query->where('academic_class_id', $id)
+                        fn (Builder $query, $id) => $query->where('academic_class_id', $id)
                     )
                     ->when(
                         $filters['subject_id'] ?? null,
-                        fn (Builder $query, $id) =>
-                            $query->where('subject_id', $id)
+                        fn (Builder $query, $id) => $query->where('subject_id', $id)
                     );
             })
             ->when(
                 $filters['start_date'] ?? null,
-                fn (Builder $query, $date) =>
-                    $query->whereDate('exam_date', '>=', $date)
+                fn (Builder $query, $date) => $query->whereDate('exam_date', '>=', $date)
             )
             ->when(
                 $filters['end_date'] ?? null,
-                fn (Builder $query, $date) =>
-                    $query->whereDate('exam_date', '<=', $date)
+                fn (Builder $query, $date) => $query->whereDate('exam_date', '<=', $date)
             );
 
         $totalExaminations = (clone $examinationsQuery)->count();
@@ -268,23 +246,19 @@ class ReportController extends Controller
             )
             ->when(
                 $filters['academic_class_id'] ?? null,
-                fn ($query, $id) =>
-                    $query->where('teaching_assignments.academic_class_id', $id)
+                fn ($query, $id) => $query->where('teaching_assignments.academic_class_id', $id)
             )
             ->when(
                 $filters['subject_id'] ?? null,
-                fn ($query, $id) =>
-                    $query->where('teaching_assignments.subject_id', $id)
+                fn ($query, $id) => $query->where('teaching_assignments.subject_id', $id)
             )
             ->when(
                 $filters['start_date'] ?? null,
-                fn ($query, $date) =>
-                    $query->whereDate('examinations.exam_date', '>=', $date)
+                fn ($query, $date) => $query->whereDate('examinations.exam_date', '>=', $date)
             )
             ->when(
                 $filters['end_date'] ?? null,
-                fn ($query, $date) =>
-                    $query->whereDate('examinations.exam_date', '<=', $date)
+                fn ($query, $date) => $query->whereDate('examinations.exam_date', '<=', $date)
             );
 
         $gradeSummary = $gradeSummaryQuery
@@ -412,17 +386,13 @@ class ReportController extends Controller
 
         $attendanceRecords = (clone $attendanceQuery)
             ->with([
-                'studentEnrollment.academicClass' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'studentEnrollment.academicClass' => fn ($relation) => $relation->withTrashed(),
 
-                'attendanceSession.teachingAssignment.teacher' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'attendanceSession.teachingAssignment.teacher' => fn ($relation) => $relation->withTrashed(),
 
-                'attendanceSession.teachingAssignment.academicClass' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'attendanceSession.teachingAssignment.academicClass' => fn ($relation) => $relation->withTrashed(),
 
-                'attendanceSession.teachingAssignment.subject' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'attendanceSession.teachingAssignment.subject' => fn ($relation) => $relation->withTrashed(),
             ])
             ->latest('id')
             ->paginate(10, ['*'], 'attendance_page');
@@ -441,17 +411,13 @@ class ReportController extends Controller
 
         $examinationResults = (clone $examinationResultQuery)
             ->with([
-                'studentEnrollment.academicClass' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'studentEnrollment.academicClass' => fn ($relation) => $relation->withTrashed(),
 
-                'examination.teachingAssignment.teacher' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'examination.teachingAssignment.teacher' => fn ($relation) => $relation->withTrashed(),
 
-                'examination.teachingAssignment.academicClass' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'examination.teachingAssignment.academicClass' => fn ($relation) => $relation->withTrashed(),
 
-                'examination.teachingAssignment.subject' =>
-                    fn ($relation) => $relation->withTrashed(),
+                'examination.teachingAssignment.subject' => fn ($relation) => $relation->withTrashed(),
             ])
             ->latest('id')
             ->paginate(10, ['*'], 'results_page');

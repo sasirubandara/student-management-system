@@ -6,8 +6,8 @@ use App\Models\Examination;
 use App\Models\ExaminationResult;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
-use App\Services\GradeCalculator;
 use App\Services\AuditLogger;
+use App\Services\GradeCalculator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +44,7 @@ class ExaminationResultController extends Controller
                 'required',
                 'numeric',
                 'min:0',
-                'max:' . $examination->maximum_marks,
+                'max:'.$examination->maximum_marks,
             ],
 
             'results.*.remarks' => [
@@ -80,8 +80,7 @@ class ExaminationResultController extends Controller
 
         if ($enrollments->count() !== count($enrollmentIds)) {
             throw ValidationException::withMessages([
-                'results' =>
-                    'One or more students are inactive, archived, not actively enrolled, or do not belong to this examination class.',
+                'results' => 'One or more students are inactive, archived, not actively enrolled, or do not belong to this examination class.',
             ]);
         }
 
