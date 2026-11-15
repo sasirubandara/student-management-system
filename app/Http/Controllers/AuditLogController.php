@@ -106,7 +106,7 @@ class AuditLogController extends Controller
                     $query->where(
                         'event',
                         'like',
-                        $validated['module'] . '.%'
+                        $validated['module'].'.%'
                     );
                 }
             )

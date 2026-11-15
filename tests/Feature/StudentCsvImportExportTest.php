@@ -494,7 +494,7 @@ it('redirects guests when accessing CSV import and export routes', function (): 
     $this->post(route('students.import.store'), [
         'file' => makeStudentCsvTestFile(
             "student_number,first_name,last_name,enrollment_date\n"
-            . "STU-CSV-GUEST,Guest,Student,2026-01-15"
+            .'STU-CSV-GUEST,Guest,Student,2026-01-15'
         ),
     ])->assertRedirect(route('login'));
 

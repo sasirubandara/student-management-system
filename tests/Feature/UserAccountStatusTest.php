@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\User;
 
 // Account status display tests
@@ -58,7 +59,7 @@ it('allows administrators to deactivate staff accounts', function (): void {
 
     expect($staff->fresh()->is_active)->toBeFalse();
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'user.status_updated')
         ->where('auditable_id', $staff->id)
         ->firstOrFail();
@@ -91,7 +92,7 @@ it('allows administrators to reactivate inactive accounts', function (): void {
 
     expect($staff->fresh()->is_active)->toBeTrue();
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'user.status_updated')
         ->where('auditable_id', $staff->id)
         ->firstOrFail();

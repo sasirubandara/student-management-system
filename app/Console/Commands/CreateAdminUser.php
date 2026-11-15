@@ -91,7 +91,7 @@ class CreateAdminUser extends Command
         ]);
 
         $this->info('Administrator account created successfully!');
-        $this->line('Account email: ' . $user->email);
+        $this->line('Account email: '.$user->email);
 
         return self::SUCCESS;
     }

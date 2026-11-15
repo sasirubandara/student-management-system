@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\Student;
 
 it('displays the student editing form with existing information', function () {
@@ -62,7 +63,7 @@ it('updates student information successfully', function () {
         'status' => 'inactive',
     ]);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'student.updated')
         ->where('auditable_id', $student->getKey())
         ->firstOrFail();

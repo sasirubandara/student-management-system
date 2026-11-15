@@ -9,8 +9,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -68,7 +66,7 @@ class StudentCsvController extends Controller
         if ($result['imported'] > 0) {
             $response->with(
                 'success',
-                $result['imported'] . ' student record(s) imported successfully.'
+                $result['imported'].' student record(s) imported successfully.'
             );
         }
 
@@ -113,7 +111,7 @@ class StudentCsvController extends Controller
             ]
         );
 
-        $filename = 'students-' . now()->format('Y-m-d-His') . '.csv';
+        $filename = 'students-'.now()->format('Y-m-d-His').'.csv';
 
         return response()->streamDownload(
             function () use ($students): void {
@@ -237,7 +235,7 @@ class StudentCsvController extends Controller
             ) === 1;
 
             if (! $isPhoneNumber && ! $isNegativeNumber) {
-                return "'" . $value;
+                return "'".$value;
             }
         }
 

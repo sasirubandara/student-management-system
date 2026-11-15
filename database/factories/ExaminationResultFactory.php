@@ -44,8 +44,7 @@ class ExaminationResultFactory extends Factory
 
             if ($result->student_enrollment_id === null) {
                 $enrollment = StudentEnrollment::factory()->create([
-                    'academic_class_id' =>
-                        $examination->teachingAssignment->academic_class_id,
+                    'academic_class_id' => $examination->teachingAssignment->academic_class_id,
                 ]);
 
                 $result->student_enrollment_id = $enrollment->id;

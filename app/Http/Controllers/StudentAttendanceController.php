@@ -85,9 +85,8 @@ class StudentAttendanceController extends Controller
 
         if ($enrollments->count() !== count($enrollmentIds)) {
             throw ValidationException::withMessages([
-                'attendances' =>
-                    'One or more selected students are inactive, archived, '
-                    . 'not actively enrolled, or do not belong to this academic class.',
+                'attendances' => 'One or more selected students are inactive, archived, '
+                    .'not actively enrolled, or do not belong to this academic class.',
             ]);
         }
 

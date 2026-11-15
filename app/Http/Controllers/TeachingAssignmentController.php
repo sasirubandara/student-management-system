@@ -39,14 +39,14 @@ class TeachingAssignmentController extends Controller
                             ->orWhere('last_name', 'like', $term)
                             ->orWhere('email', 'like', $term);
                     })
-                    ->orWhereHas('academicClass', function (Builder $query) use ($term): void {
-                        $query->where('name', 'like', $term)
-                            ->orWhere('code', 'like', $term);
-                    })
-                    ->orWhereHas('subject', function (Builder $query) use ($term): void {
-                        $query->where('name', 'like', $term)
-                            ->orWhere('code', 'like', $term);
-                    });
+                        ->orWhereHas('academicClass', function (Builder $query) use ($term): void {
+                            $query->where('name', 'like', $term)
+                                ->orWhere('code', 'like', $term);
+                        })
+                        ->orWhereHas('subject', function (Builder $query) use ($term): void {
+                            $query->where('name', 'like', $term)
+                                ->orWhere('code', 'like', $term);
+                        });
                 });
             })
             ->latest()

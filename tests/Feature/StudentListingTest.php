@@ -37,7 +37,7 @@ it('paginates the student listing', function () {
         Student::create([
             'student_number' => sprintf('STU-TEST-%03d', $number),
             'first_name' => 'Student',
-            'last_name' => 'Test ' . $number,
+            'last_name' => 'Test '.$number,
             'enrollment_date' => '2026-01-15',
             'status' => 'active',
         ]);

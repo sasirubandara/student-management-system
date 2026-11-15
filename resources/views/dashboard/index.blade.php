@@ -25,6 +25,249 @@
             </div>
         </header>
 
+        {{-- Analytics and visualizations --}}
+
+        @php
+            $attendanceBreakdown = [
+                [
+                    'label' => 'Present',
+                    'count' => $attendanceStats['present'],
+                    'class' => 'present',
+                ],
+                [
+                    'label' => 'Late',
+                    'count' => $attendanceStats['late'],
+                    'class' => 'late',
+                ],
+                [
+                    'label' => 'Absent',
+                    'count' => $attendanceStats['absent'],
+                    'class' => 'absent',
+                ],
+                [
+                    'label' => 'Excused',
+                    'count' => $attendanceStats['excused'],
+                    'class' => 'excused',
+                ],
+            ];
+
+            $attendanceTotal = array_sum(
+                array_column($attendanceBreakdown, 'count')
+            );
+
+            $enrollmentBreakdown = [
+                [
+                    'label' => 'Active',
+                    'count' => $enrollmentStats['active'],
+                    'class' => 'active',
+                ],
+                [
+                    'label' => 'Completed',
+                    'count' => $enrollmentStats['completed'],
+                    'class' => 'completed',
+                ],
+                [
+                    'label' => 'Withdrawn',
+                    'count' => $enrollmentStats['withdrawn'],
+                    'class' => 'withdrawn',
+                ],
+            ];
+
+            $enrollmentTotal = $enrollmentStats['total'];
+        @endphp
+
+        <section class="dashboard-analytics"
+                 aria-labelledby="dashboard-analytics-title">
+
+            <div class="dashboard-analytics__heading">
+                <h2 id="dashboard-analytics-title">
+                    Academic Performance Overview
+                </h2>
+
+                <p>
+                    All-time attendance, enrollment, and examination
+                    performance based on recorded data.
+                </p>
+            </div>
+
+            <div class="dashboard-analytics__metrics">
+
+                <article class="dashboard-analytics__metric">
+                    <h3>Attendance Rate</h3>
+
+                    <p class="dashboard-analytics__value">
+                        @if ($attendanceStats['rate'] !== null)
+                            {{ number_format($attendanceStats['rate'], 2) }}%
+                        @else
+                            N/A
+                        @endif
+                    </p>
+
+                    <p class="dashboard-analytics__description">
+                        Present and late records, excluding excused absences.
+                    </p>
+
+                    @if ($attendanceStats['rate'] !== null)
+                        <progress
+                            class="dashboard-analytics__progress"
+                            value="{{ $attendanceStats['rate'] }}"
+                            max="100"
+                            aria-label="Attendance rate">
+                        </progress>
+                    @endif
+                </article>
+
+                <article class="dashboard-analytics__metric">
+                    <h3>Examination Pass Rate</h3>
+
+                    <p class="dashboard-analytics__value">
+                        @if ($examinationStats['pass_rate'] !== null)
+                            {{ number_format($examinationStats['pass_rate'], 2) }}%
+                        @else
+                            N/A
+                        @endif
+                    </p>
+
+                    <p class="dashboard-analytics__description">
+                        {{ number_format($examinationStats['passed_results']) }}
+                        of
+                        {{ number_format($examinationStats['graded_results']) }}
+                        graded results passed.
+                    </p>
+
+                    @if ($examinationStats['pass_rate'] !== null)
+                        <progress
+                            class="dashboard-analytics__progress dashboard-analytics__progress--exam"
+                            value="{{ $examinationStats['pass_rate'] }}"
+                            max="100"
+                            aria-label="Examination pass rate">
+                        </progress>
+                    @endif
+                </article>
+
+                <article class="dashboard-analytics__metric">
+                    <h3>Average Examination Score</h3>
+
+                    <p class="dashboard-analytics__value">
+                        @if ($examinationStats['average_percentage'] !== null)
+                            {{ number_format($examinationStats['average_percentage'], 2) }}%
+                        @else
+                            N/A
+                        @endif
+                    </p>
+
+                    <p class="dashboard-analytics__description">
+                        Average percentage across graded examination results.
+                    </p>
+
+                    @if ($examinationStats['average_percentage'] !== null)
+                        <progress
+                            class="dashboard-analytics__progress dashboard-analytics__progress--average"
+                            value="{{ $examinationStats['average_percentage'] }}"
+                            max="100"
+                            aria-label="Average examination score">
+                        </progress>
+                    @endif
+                </article>
+
+            </div>
+
+            <div class="dashboard-analytics__charts">
+
+                <article class="dashboard-analytics__panel">
+                    <h3>Attendance Distribution</h3>
+
+                    <p class="dashboard-analytics__description">
+                        {{ number_format($attendanceTotal) }}
+                        recorded attendance entries across all sessions
+                    </p>
+
+                    @if ($attendanceTotal > 0)
+                        <div
+                            class="dashboard-analytics__stack"
+                            role="img"
+                            aria-label="Attendance distribution: {{ $attendanceStats['present'] }} present, {{ $attendanceStats['late'] }} late, {{ $attendanceStats['absent'] }} absent, and {{ $attendanceStats['excused'] }} excused.">
+                            @foreach ($attendanceBreakdown as $item)
+                                <div
+                                    class="dashboard-analytics__segment dashboard-analytics__segment--{{ $item['class'] }}"
+                                    style="width: {{ number_format(($item['count'] / $attendanceTotal) * 100, 4, '.', '') }}%;">
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <ul class="dashboard-analytics__legend">
+                            @foreach ($attendanceBreakdown as $item)
+                                <li>
+                                    <span
+                                        class="dashboard-analytics__dot dashboard-analytics__dot--{{ $item['class'] }}"
+                                        aria-hidden="true">
+                                    </span>
+
+                                    <span>{{ $item['label'] }}</span>
+
+                                    <strong>
+                                        {{ number_format($item['count']) }}
+                                        ({{ number_format(($item['count'] / $attendanceTotal) * 100, 1) }}%)
+                                    </strong>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="dashboard-analytics__empty">
+                            No attendance data available.
+                        </p>
+                    @endif
+                </article>
+
+                <article class="dashboard-analytics__panel">
+                    <h3>Enrollment Distribution</h3>
+
+                    <p class="dashboard-analytics__description">
+                        {{ number_format($enrollmentTotal) }}
+                        enrollment records
+                    </p>
+
+                    @if ($enrollmentTotal > 0)
+                        <div
+                            class="dashboard-analytics__stack"
+                            role="img"
+                            aria-label="Enrollment distribution: {{ $enrollmentStats['active'] }} active, {{ $enrollmentStats['completed'] }} completed, and {{ $enrollmentStats['withdrawn'] }} withdrawn.">
+                            @foreach ($enrollmentBreakdown as $item)
+                                <div
+                                    class="dashboard-analytics__segment dashboard-analytics__segment--{{ $item['class'] }}"
+                                    style="width: {{ number_format(($item['count'] / $enrollmentTotal) * 100, 4, '.', '') }}%;">
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <ul class="dashboard-analytics__legend">
+                            @foreach ($enrollmentBreakdown as $item)
+                                <li>
+                                    <span
+                                        class="dashboard-analytics__dot dashboard-analytics__dot--{{ $item['class'] }}"
+                                        aria-hidden="true">
+                                    </span>
+
+                                    <span>{{ $item['label'] }}</span>
+
+                                    <strong>
+                                        {{ number_format($item['count']) }}
+                                        ({{ number_format(($item['count'] / $enrollmentTotal) * 100, 1) }}%)
+                                    </strong>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <p class="dashboard-analytics__empty">
+                            No enrollment data available.
+                        </p>
+                    @endif
+                </article>
+
+            </div>
+
+        </section>
+
         {{-- Main statistics --}}
 
         <section class="dashboard-stats">

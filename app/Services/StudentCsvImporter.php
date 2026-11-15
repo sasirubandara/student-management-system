@@ -136,7 +136,7 @@ class StudentCsvImporter
                     }
 
                     $errors[] = "Row {$rowNumber}: "
-                        . implode(' ', $messages);
+                        .implode(' ', $messages);
 
                     continue;
                 }
@@ -158,8 +158,8 @@ class StudentCsvImporter
                     $failed++;
 
                     $errors[] = "Row {$rowNumber}: Student number "
-                        . $validated['student_number']
-                        . ' already exists, including archived records.';
+                        .$validated['student_number']
+                        .' already exists, including archived records.';
 
                     continue;
                 }
@@ -185,7 +185,7 @@ class StudentCsvImporter
     /**
      * Read and validate the CSV header.
      *
-     * @param resource $handle
+     * @param  resource  $handle
      * @return array<int, string>
      */
     private function readHeaders($handle): array
@@ -232,7 +232,7 @@ class StudentCsvImporter
         if ($unknownColumns !== []) {
             throw ValidationException::withMessages([
                 'file' => 'Unsupported CSV columns: '
-                    . implode(', ', $unknownColumns),
+                    .implode(', ', $unknownColumns),
             ]);
         }
 
@@ -244,7 +244,7 @@ class StudentCsvImporter
         if ($missingColumns !== []) {
             throw ValidationException::withMessages([
                 'file' => 'Missing required CSV columns: '
-                    . implode(', ', $missingColumns),
+                    .implode(', ', $missingColumns),
             ]);
         }
 
@@ -254,8 +254,8 @@ class StudentCsvImporter
     /**
      * Map a CSV row to the accepted student fields.
      *
-     * @param array<int, string> $headers
-     * @param array<int, string|null> $row
+     * @param  array<int, string>  $headers
+     * @param  array<int, string|null>  $row
      * @return array<string, mixed>
      */
     private function mapRow(array $headers, array $row): array

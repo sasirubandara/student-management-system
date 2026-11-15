@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\AuditLog;
 use App\Models\AcademicClass;
+use App\Models\AuditLog;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;

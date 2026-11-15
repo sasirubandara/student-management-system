@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
@@ -163,7 +164,7 @@ it('allows administrators to create staff accounts securely', function (): void 
         'user_id' => $admin->id,
     ]);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'user.created')
         ->where('auditable_id', $createdUser->id)
         ->firstOrFail();
@@ -258,7 +259,7 @@ it('allows administrators to promote staff users to administrators', function ()
 
     expect($staff->fresh()->role)->toBe(User::ROLE_ADMIN);
 
-    $auditLog = \App\Models\AuditLog::query()
+    $auditLog = AuditLog::query()
         ->where('event', 'user.role_updated')
         ->where('auditable_id', $staff->id)
         ->firstOrFail();
