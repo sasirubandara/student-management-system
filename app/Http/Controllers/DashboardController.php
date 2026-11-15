@@ -175,6 +175,20 @@ class DashboardController extends Controller
             ),
         ];
 
+        $eligibleAttendanceRecords = $attendanceStats['present']
+            + $attendanceStats['late']
+            + $attendanceStats['absent'];
+
+        $attendanceStats['rate'] = $eligibleAttendanceRecords > 0
+            ? round(
+                (
+                    ($attendanceStats['present'] + $attendanceStats['late'])
+                    / $eligibleAttendanceRecords
+                ) * 100,
+                2
+            )
+            : null;
+
         /*
          * Examination statistics.
          */
@@ -187,6 +201,44 @@ class DashboardController extends Controller
 
             'results' => ExaminationResult::count(),
         ];
+
+        $performance = DB::table('examination_results')
+            ->join(
+                'examinations',
+                'examination_results.examination_id',
+                '=',
+                'examinations.id'
+            )
+            ->whereNotNull('examination_results.marks_obtained')
+            ->where('examinations.maximum_marks', '>', 0)
+            ->selectRaw('COUNT(*) AS graded_results')
+            ->selectRaw(
+                'SUM(CASE
+                    WHEN examination_results.marks_obtained >= examinations.pass_marks
+                    THEN 1 ELSE 0
+                END) AS passed_results'
+            )
+            ->selectRaw(
+                'AVG(
+                    (examination_results.marks_obtained * 100.0)
+                    / examinations.maximum_marks
+                ) AS average_percentage'
+            )
+            ->first();
+
+        $gradedResults = (int) $performance->graded_results;
+        $passedResults = (int) $performance->passed_results;
+
+        $examinationStats['graded_results'] = $gradedResults;
+        $examinationStats['passed_results'] = $passedResults;
+
+        $examinationStats['pass_rate'] = $gradedResults > 0
+            ? round(($passedResults / $gradedResults) * 100, 2)
+            : null;
+
+        $examinationStats['average_percentage'] = $gradedResults > 0
+            ? round((float) $performance->average_percentage, 2)
+            : null;
 
         /*
          * Recent registered students.

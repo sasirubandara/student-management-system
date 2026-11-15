@@ -410,3 +410,187 @@ it('displays the dashboard when no academic records exist', function (): void {
         ->assertSee('No enrollment records available.')
         ->assertSee('No attendance sessions available.');
 });
+
+/*
+|--------------------------------------------------------------------------
+| Automated Tests (Attendance, Examination Performance & Empty Data Handling)
+|--------------------------------------------------------------------------
+*/
+
+it('calculates attendance rate excluding excused records', function (): void {
+    $context = makeDashboardStatisticsContext();
+
+    $session = AttendanceSession::factory()->create([
+        'teaching_assignment_id' => $context['teachingAssignment']->id,
+        'created_by' => $context['admin']->id,
+    ]);
+
+    $statuses = [
+        StudentAttendance::STATUS_PRESENT,
+        StudentAttendance::STATUS_PRESENT,
+        StudentAttendance::STATUS_LATE,
+        StudentAttendance::STATUS_ABSENT,
+        StudentAttendance::STATUS_EXCUSED,
+    ];
+
+    foreach ($statuses as $status) {
+        $enrollment = StudentEnrollment::factory()->create([
+            'academic_class_id' => $context['academicClass']->id,
+        ]);
+
+        $session->studentAttendances()->create([
+            'student_enrollment_id' => $enrollment->id,
+            'status' => $status,
+        ]);
+    }
+
+    $this->actingAs($context['admin'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertViewHas('attendanceStats', function (array $stats): bool {
+            return $stats['rate'] === 75.0;
+        });
+});
+
+it('calculates examination pass rate and average percentage', function (): void {
+    $context = makeDashboardStatisticsContext();
+
+    $firstExam = Examination::factory()->create([
+        'teaching_assignment_id' => $context['teachingAssignment']->id,
+        'created_by' => $context['admin']->id,
+        'maximum_marks' => 100,
+        'pass_marks' => 50,
+    ]);
+
+    $secondExam = Examination::factory()->create([
+        'teaching_assignment_id' => $context['teachingAssignment']->id,
+        'created_by' => $context['admin']->id,
+        'maximum_marks' => 50,
+        'pass_marks' => 25,
+    ]);
+
+    $results = [
+        [$firstExam, 80],
+        [$firstExam, 40],
+        [$secondExam, 25],
+    ];
+
+    foreach ($results as [$examination, $marks]) {
+        $enrollment = StudentEnrollment::factory()->create([
+            'academic_class_id' => $context['academicClass']->id,
+        ]);
+
+        $examination->results()->create([
+            'student_enrollment_id' => $enrollment->id,
+            'marks_obtained' => $marks,
+            'grade' => 'C',
+        ]);
+    }
+
+    $this->actingAs($context['admin'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertViewHas('examinationStats', function (array $stats): bool {
+            return $stats['graded_results'] === 3
+                && $stats['passed_results'] === 2
+                && $stats['pass_rate'] === 66.67
+                && $stats['average_percentage'] === 56.67;
+        });
+});
+
+it('returns unavailable analytics percentages when no eligible records exist', function (): void {
+    $context = makeDashboardStatisticsContext();
+
+    $this->actingAs($context['admin'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertViewHas('attendanceStats', function (array $stats): bool {
+            return $stats['rate'] === null;
+        })
+        ->assertViewHas('examinationStats', function (array $stats): bool {
+            return $stats['graded_results'] === 0
+                && $stats['passed_results'] === 0
+                && $stats['pass_rate'] === null
+                && $stats['average_percentage'] === null;
+        });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard Analytics Rendering and Views
+|--------------------------------------------------------------------------
+*/
+
+it('renders the dashboard analytics components', function (): void {
+    $context = makeDashboardStatisticsContext();
+
+    $this->actingAs($context['admin'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Academic Performance Overview')
+        ->assertSee('Attendance Rate')
+        ->assertSee('Examination Pass Rate')
+        ->assertSee('Average Examination Score')
+        ->assertSee('Attendance Distribution')
+        ->assertSee('Enrollment Distribution');
+});
+
+it('shows helpful messages when analytics data is unavailable', function (): void {
+    $context = makeDashboardStatisticsContext();
+
+    $this->actingAs($context['admin'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('No attendance data available.')
+        ->assertSee('No enrollment data available.')
+        ->assertSee('N/A');
+});
+
+it('displays calculated attendance analytics in the dashboard', function (): void {
+    $context = makeDashboardStatisticsContext();
+
+    $session = AttendanceSession::factory()->create([
+        'teaching_assignment_id' => $context['teachingAssignment']->id,
+        'created_by' => $context['admin']->id,
+    ]);
+
+    foreach ([
+        StudentAttendance::STATUS_PRESENT,
+        StudentAttendance::STATUS_PRESENT,
+        StudentAttendance::STATUS_LATE,
+        StudentAttendance::STATUS_ABSENT,
+    ] as $status) {
+        $enrollment = StudentEnrollment::factory()->create([
+            'academic_class_id' => $context['academicClass']->id,
+        ]);
+
+        $session->studentAttendances()->create([
+            'student_enrollment_id' => $enrollment->id,
+            'status' => $status,
+        ]);
+    }
+
+    $this->actingAs($context['admin'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('75.00%')
+        ->assertSee('Attendance Distribution')
+        ->assertSee('2 present, 1 late, 1 absent, and 0 excused.');
+});
+
+it('allows staff to view analytics without archived statistics', function (): void {
+    $context = makeDashboardStatisticsContext();
+
+    $this->actingAs($context['staff'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Academic Performance Overview')
+        ->assertSee('Attendance Rate')
+        ->assertSee('Examination Pass Rate')
+        ->assertViewHas('studentStats', function (array $stats): bool {
+            return $stats['archived'] === null;
+        })
+        ->assertViewHas('teacherStats', function (array $stats): bool {
+            return $stats['archived'] === null;
+        });
+});
