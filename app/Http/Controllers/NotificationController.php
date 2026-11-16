@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class NotificationController extends Controller
@@ -13,17 +14,39 @@ class NotificationController extends Controller
      */
     public function index(Request $request): View
     {
+        $validated = $request->validate([
+            'filter' => [
+                'nullable',
+                'string',
+                Rule::in([
+                    'all',
+                    'unread',
+                    'read',
+                ]),
+            ],
+        ]);
+
+        $filter = $validated['filter'] ?? 'all';
+
         $user = $request->user();
 
-        $notifications = $user->notifications()
+        $query = match ($filter) {
+            'unread' => $user->unreadNotifications(),
+            'read' => $user->readNotifications(),
+            default => $user->notifications(),
+        };
+
+        $notifications = $query
             ->latest()
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         $unreadCount = $user->unreadNotifications()->count();
 
         return view('notifications.index', [
             'notifications' => $notifications,
             'unreadCount' => $unreadCount,
+            'filter' => $filter,
         ]);
     }
 
@@ -34,6 +57,14 @@ class NotificationController extends Controller
         Request $request,
         string $notification
     ): RedirectResponse {
+        $validated = $request->validate([
+            'filter' => [
+                'nullable',
+                'string',
+                Rule::in(['all', 'unread', 'read']),
+            ],
+        ]);
+
         $userNotification = $request->user()
             ->notifications()
             ->whereKey($notification)
@@ -43,8 +74,13 @@ class NotificationController extends Controller
             $userNotification->markAsRead();
         }
 
+        $filter = $validated['filter'] ?? 'all';
+
         return redirect()
-            ->route('notifications.index')
+            ->route(
+                'notifications.index',
+                $filter === 'all' ? [] : ['filter' => $filter]
+            )
             ->with('success', 'Notification marked as read.');
     }
 
@@ -53,14 +89,27 @@ class NotificationController extends Controller
      */
     public function markAllAsRead(Request $request): RedirectResponse
     {
+        $validated = $request->validate([
+            'filter' => [
+                'nullable',
+                'string',
+                Rule::in(['all', 'unread', 'read']),
+            ],
+        ]);
+
         $request->user()
             ->unreadNotifications()
             ->update([
                 'read_at' => now(),
             ]);
 
+        $filter = $validated['filter'] ?? 'all';
+
         return redirect()
-            ->route('notifications.index')
+            ->route(
+                'notifications.index',
+                $filter === 'all' ? [] : ['filter' => $filter]
+            )
             ->with('success', 'All notifications marked as read.');
     }
 }

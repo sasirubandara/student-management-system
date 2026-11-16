@@ -1669,6 +1669,51 @@ body {
    Notifications Page
 ========================================= */
 
+/* Notification filters */
+
+.notifications-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 20px 0 24px;
+}
+
+.notifications-filters__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 9px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.notifications-filters__link:hover {
+    background: #f3f4f6;
+}
+
+.notifications-filters__link--active {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.notifications-filters__link:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+}
+
+@media (max-width: 480px) {
+    .notifications-filters__link {
+        flex: 1 1 auto;
+    }
+}
+
 .notifications-page {
     width: min(1100px, calc(100% - 40px));
     margin: 36px auto;
@@ -1801,6 +1846,7 @@ body {
 .notification-card__content {
     flex: 1;
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .notification-card__heading {
@@ -1815,6 +1861,7 @@ body {
     color: #111827;
     font-size: 1rem;
     font-weight: 650;
+    overflow-wrap: anywhere;
 }
 
 .notification-card__event {
@@ -1848,6 +1895,7 @@ body {
     color: #4b5563;
     font-size: 0.9rem;
     line-height: 1.6;
+    overflow-wrap: anywhere;
 }
 
 .notification-card__metadata {
@@ -1878,7 +1926,7 @@ body {
 }
 
 .notifications-page__mark-read {
-    padding: 0;
+    padding: 8px 4px;
     border: none;
     background: transparent;
     color: #6b7280;
@@ -1955,5 +2003,50 @@ body {
 
     .notification-card__status {
         align-self: flex-start;
+    }
+}
+
+/* Notification center refinements */
+
+.notifications-page__header form {
+    flex-shrink: 0;
+}
+
+.notifications-page__button,
+.notifications-page__mark-read {
+    min-height: 44px;
+}
+
+.notifications-filters__link:focus-visible,
+.notifications-page__button:focus-visible,
+.notifications-page__mark-read:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 3px;
+}
+
+.notifications-page__link:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+}
+
+.notification-card__pagination {
+    overflow-x: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .notification-card,
+    .notifications-page__button {
+        transition: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .notifications-page__header form,
+    .notifications-page__header .notifications-page__button {
+        width: 100%;
+    }
+
+    .notifications-page__summary > div {
+        min-width: 0;
     }
 }
