@@ -23,6 +23,8 @@
 
         <section class="students-page__form-wrapper">
 
+            @inject('applicationSettings', 'App\Services\ApplicationSettingsService')
+
             <form action="{{ route('academic-classes.store') }}"
                   method="POST"
                   class="student-edit-form">
@@ -106,7 +108,13 @@
                         type="number"
                         id="academic_year"
                         name="academic_year"
-                        value="{{ old('academic_year', now()->year) }}"
+                        value="{{ old(
+                            'academic_year',
+                            $applicationSettings->get(
+                                'current_academic_year',
+                                now()->year
+                            )
+                        ) }}"
                         min="2000"
                         max="2100"
                         required
