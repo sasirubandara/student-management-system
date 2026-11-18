@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AcademicClassController;
 use App\Http\Controllers\AcademicClassSubjectController;
+use App\Http\Controllers\ApplicationSettingController;
 use App\Http\Controllers\AttendanceSessionController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
@@ -384,5 +385,16 @@ Route::middleware(['auth', 'active'])->group(function () {
         NotificationController::class,
         'markAsRead',
     ])->name('notifications.read');
+
+    // Application settings
+    Route::get(
+        '/settings',
+        [ApplicationSettingController::class, 'edit']
+    )->name('settings.edit');
+
+    Route::patch(
+        '/settings',
+        [ApplicationSettingController::class, 'update']
+    )->name('settings.update');
 
 });

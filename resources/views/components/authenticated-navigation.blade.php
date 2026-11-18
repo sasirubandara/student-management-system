@@ -1,12 +1,19 @@
+@inject('applicationSettings', 'App\Services\ApplicationSettingsService')
+
 @php
     $notificationUnreadCount = auth()->user()?->unreadNotifications()->count() ?? 0;
 @endphp
 
 <nav class="app-navigation" aria-label="Main navigation">
 
-    <a href="{{ route('dashboard') }}"
-       class="app-navigation__brand">
-        Student Management System
+    <a
+        href="{{ route('dashboard') }}"
+        class="app-navigation__brand"
+    >
+        {{ $applicationSettings->get(
+            'institution_name',
+            'Student Management System'
+        ) }}
     </a>
 
     <div class="app-navigation__links">
@@ -76,6 +83,17 @@
         @can('viewAny', \App\Models\Subject::class)
             <a href="{{ route('subjects.index') }}">
                 Subjects
+            </a>
+        @endcan
+
+        @can('viewAny', \App\Models\ApplicationSetting::class)
+            <a
+                href="{{ route('settings.edit') }}"
+                @if (request()->routeIs('settings.*'))
+                    aria-current="page"
+                @endif
+            >
+                Settings
             </a>
         @endcan
 

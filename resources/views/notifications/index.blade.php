@@ -111,6 +111,7 @@
 
         <section aria-label="Notification history">
 
+            @inject('dateFormatter', 'App\Services\DateFormattingService')
             <div class="notifications-list">
 
                 @forelse ($notifications as $notification)
@@ -167,10 +168,14 @@
                             <div class="notification-card__metadata">
                                 <time
                                     datetime="{{ $notification->created_at?->toIso8601String() }}"
-                                    title="{{ $notification->created_at?->format('M d, Y h:i A') }}"
+                                    title="{{ $dateFormatter->dateTime($notification->created_at) }}"
                                 >
                                     {{ $notification->created_at?->diffForHumans() }}
                                 </time>
+
+                                <span class="notification-card__formatted-time">
+                                    {{ $dateFormatter->dateTime($notification->created_at) }}
+                                </span>
                             </div>
 
                             @if ($isUnread)

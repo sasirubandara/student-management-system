@@ -2,6 +2,8 @@
 
 use App\Models\User;
 use App\Notifications\SystemActivityNotification;
+use App\Services\ApplicationSettingsService;
+use Carbon\CarbonImmutable;
 
 it('allows users to view only their own notifications', function (): void {
     $recipient = User::factory()->create([
@@ -441,4 +443,41 @@ it('escapes HTML in notification content', function (): void {
         ->assertSee('<strong>Example message</strong>')
         ->assertDontSee('<script>alert(1)</script>', false)
         ->assertDontSee('<strong>Example message</strong>', false);
+});
+
+it('displays notification timestamps using application preferences', function (): void {
+    $user = User::factory()->create([
+        'role' => User::ROLE_STAFF,
+        'is_active' => true,
+    ]);
+
+    $settings = app(ApplicationSettingsService::class);
+
+    $settings->update([
+        'timezone' => 'Asia/Colombo',
+        'date_format' => 'd/m/Y',
+    ]);
+
+    $user->notify(new SystemActivityNotification(
+        event: 'student.created',
+        title: 'Timestamp integration test',
+        message: 'Testing configured notification timestamps.',
+    ));
+
+    $notification = $user->notifications()->firstOrFail();
+
+    $notification->forceFill([
+        'created_at' => CarbonImmutable::parse(
+            '2027-01-15 10:00:00',
+            'UTC'
+        ),
+    ])->save();
+
+    $this->actingAs($user)
+        ->get(route('notifications.index'))
+        ->assertOk()
+        ->assertSee('Timestamp integration test')
+        ->assertSee('15/01/2027 15:30');
+
+    $settings->clearCache();
 });

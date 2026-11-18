@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, and administrator-controlled user account management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, administrator-controlled user account management, advanced search and filtering, dashboard analytics, and centralized application settings and configuration management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -37,7 +37,7 @@ This project is developed incrementally as a learning and software development p
 - Display import summaries and row-level error messages.
 - Reuse the existing student database table without introducing additional database tables.
 
-****CSV column requirements****
+**CSV column requirements**
 
 Required columns:
 
@@ -72,7 +72,7 @@ CSV uploads are limited to 2 MB.
 - Preserve document metadata when an uploader's account is deleted.
 - Prevent accidental permanent deletion of students who still have associated documents.
 
-****Document storage and security****
+**Document storage and security**
 
 Uploaded files are stored privately under `storage/app/private/student-documents`, rather than being exposed through public URLs.
 
@@ -87,12 +87,12 @@ The `student_documents` database table stores document metadata and maintains re
 - Search and paginate enrollment records.
 - Create new student enrollments.
 - Update enrollment dates, statuses, and administrative notes.
-- Support three enrollment statuses: ****Active****, ****Completed****, and ****Withdrawn****.
+- Support three enrollment statuses: **Active**, **Completed**, and **Withdrawn**.
 - Prevent duplicate enrollment records for the same student and academic class.
 - Reject enrollment creation when the selected student or academic class is inactive or archived.
 - Preserve enrollment records as historical records rather than permanently deleting them.
 
-****Enrollment history and duplicate prevention****
+**Enrollment history and duplicate prevention**
 
 Each student and academic class combination can have only one enrollment record. A unique database constraint prevents another record from being created for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
 
@@ -145,7 +145,7 @@ Teacher records are maintained separately from system user accounts. Teacher pro
 - Prevent inactive or archived subjects from being newly assigned.
 - Preserve subject assignment records when related subjects or classes are archived.
 
-****Class-subject relationship****
+**Class-subject relationship**
 
 Academic classes and subjects use a many-to-many relationship through the `academic_class_subject` pivot table.
 
@@ -165,7 +165,7 @@ Each assignment connects one academic class with one subject. A unique database 
 - Require the subject to already be assigned to the selected academic class.
 - Reject inactive or archived teachers, academic classes, and subjects when creating or updating assignments.
 
-****Teaching assignment relationship and duplicate prevention****
+**Teaching assignment relationship and duplicate prevention**
 
 Each teaching assignment connects one teacher, one academic class, and one subject through the `teaching_assignments` table.
 
@@ -179,7 +179,7 @@ Teaching assignments do not use soft deletes. Administrators can remove an assig
 
 - Create subject-based attendance sessions linked to teaching assignments.
 - Record attendance for students with active enrollments in the assigned academic class.
-- Support four attendance statuses: ****Present****, ****Absent****, ****Late****, and ****Excused****.
+- Support four attendance statuses: **Present**, **Absent**, **Late**, and **Excused**.
 - Record attendance for multiple students in one submission.
 - Update previously recorded student attendance.
 - Add optional remarks to individual attendance records.
@@ -196,7 +196,7 @@ Teaching assignments do not use soft deletes. Administrators can remove an assig
 - Restrict removal of attendance sessions and individual attendance records to administrators.
 - Prevent removal of attendance sessions that contain student attendance records.
 
-****Attendance session and student attendance relationships****
+**Attendance session and student attendance relationships**
 
 Each attendance session belongs to one teaching assignment and has an attendance date. A unique database constraint prevents more than one session from being created for the same teaching assignment on the same date.
 
@@ -234,7 +234,7 @@ Each attendance session also records the user who created it.
 - Restrict examination deletion and individual result deletion to administrators.
 - Prevent examination deletion when examination results exist.
 
-****Examination and result relationships****
+**Examination and result relationships**
 
 Each examination belongs to one teaching assignment, connecting a teacher, an academic class, and a subject.
 
@@ -251,7 +251,7 @@ Foreign-key restrictions protect examinations, student enrollments, and historic
 - Summarize each student's attendance records by status and display attendance history with class, subject, teacher, date, and remarks.
 - Display examination history, marks obtained, maximum marks, grades, and remarks for each student.
 - Provide attendance reports filterable by academic class, subject, and date range.
-- Summarize attendance records by ****Present****, ****Absent****, ****Late****, and ****Excused**** across all matching sessions.
+- Summarize attendance records by **Present**, **Absent**, **Late**, and **Excused** across all matching sessions.
 - Provide examination reports filterable by academic class, subject, and date range.
 - Summarize examination counts, recorded results, and grade distributions across matching examinations.
 - Allow administrators to view archived students in the report directory and open their historical academic reports; staff users can view active student reports only.
@@ -265,14 +265,30 @@ Reports preserve historical context by displaying related archived classes, subj
 - Provide a central dashboard for administrators and staff after authentication.
 - Display summary cards for students, teachers, academic classes, subjects, student enrollments, teaching assignments, attendance sessions this month, and examinations.
 - Show student and teacher totals with active and inactive counts.
-- Summarize student enrollments by status: ****Active****, ****Completed****, and ****Withdrawn****.
-- Summarize attendance records by status: ****Present****, ****Absent****, ****Late****, and ****Excused****.
+- Summarize student enrollments by status: **Active**, **Completed**, and **Withdrawn**.
+- Summarize attendance records by status: **Present**, **Absent**, **Late**, and **Excused**.
 - Display upcoming examinations with their dates and teaching assignment details.
 - Display recent student records, student enrollments, and attendance sessions.
 - Show archived student and teacher counts to administrators only.
 - Keep dashboard statistics based on the application's existing academic and attendance records without introducing additional database tables.
 
 The dashboard provides administrators and staff with an overview of current academic activity. Archived student and teacher statistics are restricted to administrators in accordance with the application's role permissions.
+
+### Advanced Search and Filtering
+
+- Provide search and filtering controls across supported management listings.
+- Combine search criteria with available filters to narrow matching records.
+- Preserve selected filters during pagination.
+- Respect existing authorization rules when retrieving filtered records.
+
+### Dashboard Analytics
+
+- Display overall attendance rates, examination pass rates, and average examination scores.
+- Calculate attendance rates using present and late records, excluding excused absences.
+- Calculate examination pass rates across graded results and average scores using percentages.
+- Display attendance and enrollment status distributions.
+- Handle empty datasets without misleading statistics.
+- Retain existing dashboard summaries and administrator-only archived record counts.
 
 ### In-App Notifications
 
@@ -291,7 +307,12 @@ The application provides database-backed notifications to keep active users info
 **Notification features**
 
 - Notify other active users when supported activities occur; the acting user is excluded.
-- Display a paginated notification inbox with read and unread states.
+- Display a responsive Notification Center with paginated notification history and read/unread status indicators.
+- Filter notifications using All, Unread, and Read views.
+- Display unread and matching notification counts.
+- Preserve selected filters during pagination and after read-status updates.
+- Display relative timestamps and absolute timestamps using configured timezone and date-format preferences.
+- Provide helpful empty states and keyboard-accessible controls.
 - Show an unread notification count in the authenticated navigation.
 - Allow users to mark one notification or all their unread notifications as read.
 - Store notification event types, titles, messages, icons, and optional destination URLs in the database.
@@ -303,11 +324,44 @@ Notification routes require authentication and an active account. Users can view
 
 The notifications table is created by the standard `php artisan migrate` command in the installation instructions. No separate notification service or queue worker is required for the current synchronous database delivery.
 
+### Application Settings and Configuration Management
+
+Active administrators can manage institution-wide preferences through the **Settings** page in the authenticated navigation.
+
+**Supported settings**
+
+| Setting | Description |
+|---|---|
+| Institution name | Configures authenticated navigation branding. |
+| Institution email | Optional institutional contact email. |
+| Institution phone | Optional contact number stored as a string. |
+| Institution address | Optional institutional address. |
+| Current academic year | Default year for newly created academic classes (2000–2100). |
+| Timezone | Preferred timezone for notification timestamp display. |
+| Date format | Preferred date format for notification timestamps. |
+
+**Storage, reliability and integration**
+
+- Store settings in the `application_settings` table using a designated record with ID `1`.
+- Automatically initialize default settings on first access.
+- Retrieve supported settings through `ApplicationSettingsService` with cached array values and a one-hour cache lifetime.
+- Invalidate cached settings after successful updates, with additional post-commit invalidation when an outer transaction is active.
+- Validate settings through `UpdateApplicationSettingRequest` and enforce active-administrator permissions through `ApplicationSettingPolicy`.
+- Use database transactions and record locking for settings updates and their audit records.
+- Record changed settings with their previous and new values; unchanged submissions do not generate settings update audit events.
+- Preserve existing academic years when the configured default changes.
+- Format dates and timestamps through the reusable `DateFormattingService` without changing Laravel's global timezone or stored UTC timestamps.
+- Provide a responsive settings form with accessible validation messages and keyboard focus indicators.
+
+Supported date formats are `Y-m-d`, `d/m/Y`, `m/d/Y`, `d M Y`, and `M d, Y`. Institution contact details are stored for future report and document integrations. Localization currently applies to notification timestamps, not every date in the application.
+
+Infrastructure configuration, database credentials, and application encryption keys remain outside the settings module and must be managed through environment configuration. Cache invalidation is designed for the current application workflow; strict distributed cache consistency is not guaranteed.
+
 ### Audit Logs and Activity History
 
 The system records important application activities to provide an audit history of actions performed by administrators and staff users.
 
-****Recorded activities****
+**Recorded activities**
 
 Audit events include:
 
@@ -328,8 +382,9 @@ Audit events include:
 - Student CSV export requests.
 - Student CSV template downloads.
 - Student document uploads and deletions.
+- Application settings updates (`application_settings.updated`).
 
-****Audit log management****
+**Audit log management**
 
 - Administrators can view the audit log directory.
 - Administrators can search and filter audit records.
@@ -339,7 +394,7 @@ Audit events include:
 - Audit records are read-only through the application interface.
 - The application does not provide routes for modifying or deleting audit records.
 
-****Privacy and security****
+**Privacy and security**
 
 Audit logging is designed to avoid unnecessarily storing sensitive information.
 
@@ -349,6 +404,7 @@ Audit logging is designed to avoid unnecessarily storing sensitive information.
 - Student document events exclude file paths, original filenames, descriptions, and file contents.
 - CSV export events record whether a search filter was applied without storing the actual search term.
 - Document metadata recorded in audit events is limited to relevant information such as student ID, category, MIME type, and file size.
+- Settings update events record previous and new values of changed supported settings, subject to the audit logger’s sanitization and string-length limits. Institution contact information may therefore appear in administrator-only audit records.
 
 Audit entries retain their activity history when an associated user account or audited record is deleted, subject to the application's database relationships.
 
@@ -445,6 +501,10 @@ Administrators can:
 | Remove individual examination results | Yes | No |
 | View own in-app notifications | Yes | Yes |
 | Mark own notifications as read | Yes | Yes |
+| Filter own notifications | Yes | Yes |
+| Mark all own notifications as read | Yes | Yes |
+| View application settings administration page | Yes | No |
+| Update application settings | Yes | No |
 | View audit logs | Yes | No |
 | Search and filter audit logs | Yes | No |
 | View individual audit activities | Yes | No |
@@ -597,6 +657,17 @@ The command asks for the target user's email address and confirmation before cha
 
 Use strong, unique passwords and keep account credentials private.
 
+## Managing Application Settings
+
+After running the migrations and creating an administrator account, log in and select **Settings** or visit `/settings`.
+
+1. Enter the institution name and optional contact details.
+2. Configure the current academic year, timezone, and date format.
+3. Select **Save Settings** to persist the changes.
+4. Verify the updated navigation branding, new academic class defaults, and notification timestamps.
+
+The initial settings record uses the default institution name, current calendar year, application timezone (`UTC`), and `Y-m-d` date format. No separate settings seeder is required. Staff can use the resulting application preferences but cannot access or modify the settings administration page.
+
 ## Running Tests
 
 The project uses Pest for automated unit and feature testing.
@@ -701,6 +772,18 @@ Run the academic reports feature tests:
 php artisan test tests/Feature/AcademicReportsTest.php
 ```
 
+Run the application settings and localization tests:
+
+```bash
+php artisan test tests/Feature/ApplicationSettingTest.php
+php artisan test tests/Feature/ApplicationSettingsServiceTest.php
+php artisan test tests/Feature/ApplicationSettingManagementTest.php
+php artisan test tests/Feature/DateFormattingServiceTest.php
+php artisan test tests/Feature/WebMiddlewareConfigurationTest.php
+```
+
+The notification controller tests also verify configured timestamp rendering. Settings tests cover authorization, validation, persistence, caching, audit logging, transaction rollback, HTML escaping, and preservation of historical academic records.
+
 Run the grade calculator unit tests:
 
 ```bash
@@ -714,6 +797,14 @@ php artisan test --filter=AuthenticationTest
 ```
 
 The automated test environment is configured to use an in-memory SQLite database through `phpunit.xml`. This keeps test records separate from the development database.
+
+Run code formatting and view compilation checks:
+
+```bash
+php vendor/bin/pint --test
+php artisan view:cache
+php artisan view:clear
+```
 
 ## Frontend Development
 
@@ -783,7 +874,7 @@ Example:
 
 ```bash
 git switch main
-git pull origin main
+git pull --ff-only origin main
 git switch -c feature/your-feature-name
 ```
 
@@ -793,7 +884,12 @@ The following features are potential future development milestones.
 
 ### Advanced Features
 
-- Advanced search and filtering.
+- User profile and account settings.
+- Advanced report exporting (PDF and Excel).
+- Academic year and term management.
+- Student promotion and academic progression.
+- REST API and API authentication.
+- Expanded report branding and date-format integration.
 
 ### Further Quality Improvements
 
@@ -808,38 +904,40 @@ The following features are potential future development milestones.
 ```text
 student-management-system/
 ├── app/
-│   ├── Console/
-│   ├── Http/
-│   │   ├── Controllers/
-│   │   └── Middleware/
-│   ├── Notifications/
-│   ├── Models/
-│   ├── Policies/
-│   └── Services/
+│   ├── Console/
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   ├── Middleware/
+│   │   └── Requests/
+│   ├── Notifications/
+│   ├── Models/
+│   ├── Policies/
+│   └── Services/
 ├── bootstrap/
 ├── config/
 ├── database/
-│   ├── factories/
-│   ├── migrations/
-│   └── seeders/
+│   ├── factories/
+│   ├── migrations/
+│   └── seeders/
 ├── resources/
-│   ├── css/
-│   ├── js/
-│   └── views/
-│       ├── audit-logs/
-│       ├── notifications/
-│       └── students/
-│           └── documents/
+│   ├── css/
+│   ├── js/
+│   └── views/
+│       ├── audit-logs/
+│       ├── notifications/
+│       ├── settings/
+│       └── students/
+│           └── documents/
 ├── routes/
 ├── storage/
-│   └── app/
-│       └── private/
-│           └── student-documents/
+│   └── app/
+│       └── private/
+│           └── student-documents/
 ├── tests/
-│   ├── Feature/
-│   └── Unit/
+│   ├── Feature/
+│   └── Unit/
 ├── .github/
-│   └── workflows/
+│   └── workflows/
 ├── composer.json
 ├── package.json
 └── README.md
@@ -858,12 +956,16 @@ student-management-system/
 - Restrict notification access and read-status updates to the owning user.
 - Limit student document upload notifications to authorized administrator and staff accounts.
 - Avoid storing sensitive information in audit log properties.
+- Restrict application settings management to active administrators.
+- Validate configuration values and escape configurable institution names in HTML.
+- Keep application credentials outside database-backed settings.
+- Preserve UTC timestamps and historical academic data when display preferences change.
 - Review authorization rules when adding new functionality.
 - Test security-sensitive changes before merging them into `main`.
 
 ## Project Status
 
-****Current status:**** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, and account activation have been implemented.
+**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
@@ -883,8 +985,12 @@ Audit records are designed to exclude sensitive credentials and unnecessary pers
 
 The in-app notification system informs other active users about student registration, enrollment creation, attendance session creation, examination scheduling, and student document uploads. Each user can view and mark their own notifications as read; document upload notifications are limited to administrators and staff.
 
-Automated testing and GitHub Actions support the development workflow.
+Advanced search and filtering, dashboard analytics, and the enhanced Notification Center improve access to academic information and system activity. Notification filters, pagination, read actions, and accessible status indicators support day-to-day use.
 
-**---**
+The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, academic year defaults apply to new class forms, and notification timestamps use the selected display preferences.
+
+Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, and integration regression coverage.
+
+---
 
 Built as a continuous learning and software development portfolio project.

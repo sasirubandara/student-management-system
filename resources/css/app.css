@@ -2050,3 +2050,334 @@ body {
         min-width: 0;
     }
 }
+
+/* =========================================
+   Application Settings
+========================================= */
+
+.settings-page {
+    width: min(1000px, calc(100% - 40px));
+    margin: 36px auto;
+    padding-bottom: 40px;
+    color: #1f2937;
+}
+
+.settings-page__header {
+    margin-bottom: 28px;
+}
+
+.settings-page__header h1 {
+    margin: 0 0 8px;
+    color: #111827;
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.settings-page__header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* Status messages */
+
+.settings-page__success {
+    margin-bottom: 24px;
+    padding: 14px 18px;
+    border: 1px solid #a7f3d0;
+    border-radius: 8px;
+    background: #ecfdf5;
+    color: #065f46;
+}
+
+.settings-page__validation {
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    background: #fef2f2;
+    color: #991b1b;
+    font-size: 0.875rem;
+}
+
+.settings-page__validation p {
+    margin: 6px 0;
+}
+
+.settings-page__validation ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+    list-style: disc;
+}
+
+/* Settings sections */
+
+.settings-form {
+    display: grid;
+    gap: 24px;
+}
+
+.settings-section {
+    min-width: 0;
+    padding: 26px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.settings-section__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.settings-section__icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: #eff6ff;
+    font-size: 1.25rem;
+}
+
+.settings-section__header h2 {
+    margin: 0 0 5px;
+    color: #111827;
+    font-size: 1.15rem;
+    font-weight: 650;
+}
+
+.settings-section__header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+/* Form fields */
+
+.settings-form__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+}
+
+.settings-form__field {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.settings-form__field--full {
+    grid-column: 1 / -1;
+}
+
+.settings-form__field label {
+    color: #374151;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.settings-form__field label span {
+    color: #b91c1c;
+}
+
+.settings-form__field input,
+.settings-form__field select,
+.settings-form__field textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 11px 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #111827;
+    font: inherit;
+    font-size: 0.875rem;
+    box-sizing: border-box;
+}
+
+.settings-form__field textarea {
+    min-height: 110px;
+    resize: vertical;
+}
+
+.settings-form__field input::placeholder,
+.settings-form__field textarea::placeholder {
+    color: #6b7280;
+}
+
+.settings-form__field input:hover,
+.settings-form__field select:hover,
+.settings-form__field textarea:hover {
+    border-color: #9ca3af;
+}
+
+.settings-form__field input:focus,
+.settings-form__field select:focus,
+.settings-form__field textarea:focus {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+    border-color: #2563eb;
+}
+
+.settings-form__field [aria-invalid="true"] {
+    border-color: #dc2626;
+}
+
+.settings-form__help {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.settings-form__error {
+    margin: 0;
+    color: #b91c1c;
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+/* Form actions */
+
+.settings-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.settings-form__actions > p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
+.settings-form__buttons {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-form__cancel,
+.settings-form__submit {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 11px 20px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.settings-form__cancel {
+    border-color: #d1d5db;
+    background: #ffffff;
+    color: #374151;
+}
+
+.settings-form__cancel:hover {
+    background: #f3f4f6;
+}
+
+.settings-form__submit {
+    background: #1f2937;
+    color: #ffffff;
+}
+
+.settings-form__submit:hover {
+    background: #374151;
+}
+
+.settings-form__cancel:focus-visible,
+.settings-form__submit:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+}
+
+/* Responsive layout */
+
+@media (max-width: 640px) {
+    .settings-page {
+        width: calc(100% - 28px);
+        margin-top: 24px;
+    }
+
+    .settings-page__header h1 {
+        font-size: 1.6rem;
+    }
+
+    .settings-section {
+        padding: 18px;
+    }
+
+    .settings-section__header {
+        gap: 12px;
+    }
+
+    .settings-form__grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 18px;
+    }
+
+    .settings-form__field--full {
+        grid-column: auto;
+    }
+
+    .settings-form__actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .settings-form__buttons {
+        width: 100%;
+    }
+
+    .settings-form__cancel,
+    .settings-form__submit {
+        flex: 1;
+    }
+}
+
+@media (max-width: 360px) {
+    .settings-section {
+        padding: 14px;
+    }
+
+    .settings-form__buttons {
+        flex-direction: column-reverse;
+        align-items: stretch;
+    }
+}
+
+/* Configurable institution branding */
+
+.app-navigation__brand {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+.notification-card__formatted-time {
+    display: block;
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 0.75rem;
+}
