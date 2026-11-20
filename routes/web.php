@@ -10,6 +10,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExaminationController;
 use App\Http\Controllers\ExaminationResultController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\StudentAttendanceController;
 use App\Http\Controllers\StudentController;
@@ -45,11 +46,23 @@ Route::post('/logout', [AuthController::class, 'destroy'])
     ->name('logout');
 
 // Protected application routes
-Route::middleware(['auth', 'active'])->group(function () {
+Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
 
     // Application dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
+
+    // Personal account profile
+    Route::get('/profile', [ProfileController::class, 'edit'])
+        ->name('profile.edit');
+
+    Route::patch('/profile', [ProfileController::class, 'update'])
+        ->middleware('throttle:10,1')
+        ->name('profile.update');
+
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])
+        ->middleware('throttle:5,1')
+        ->name('profile.password.update');
 
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])

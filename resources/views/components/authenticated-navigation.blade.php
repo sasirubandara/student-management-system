@@ -124,6 +124,16 @@
             </span>
         </span>
 
+        <a
+            href="{{ route('profile.edit') }}"
+            class="app-navigation__profile"
+            @if (request()->routeIs('profile.*'))
+                aria-current="page"
+            @endif
+        >
+            My Profile
+        </a>
+
         <form action="{{ route('logout') }}" method="POST">
             @csrf
 

@@ -5,6 +5,7 @@ use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
@@ -40,5 +41,30 @@ it('applies essential middleware to application settings routes', function (): v
             PreventRequestForgery::class,
             SubstituteBindings::class,
         );
+    }
+});
+
+it('applies session authentication to protected application routes', function (): void {
+    app(Kernel::class);
+
+    $router = app('router');
+
+    foreach ([
+        'dashboard',
+        'students.index',
+        'profile.edit',
+        'profile.update',
+        'profile.password.update',
+        'settings.edit',
+        'notifications.index',
+    ] as $name) {
+        $route = $router->getRoutes()->getByName($name);
+
+        expect($route)->not->toBeNull();
+
+        $middleware = $router->gatherRouteMiddleware($route);
+
+        expect($middleware)
+            ->toContain(AuthenticateSession::class);
     }
 });
