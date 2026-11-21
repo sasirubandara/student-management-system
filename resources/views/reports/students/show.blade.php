@@ -32,6 +32,13 @@
                     Back to Students
                 </a>
 
+                <a
+                    href="{{ route('reports.students.export.pdf', $student) }}"
+                    class="students-page__button"
+                >
+                    Download PDF
+                </a>
+
                 <button
                     type="button"
                     class="students-page__button"

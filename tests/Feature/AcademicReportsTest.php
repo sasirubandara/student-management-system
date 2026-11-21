@@ -11,9 +11,10 @@ use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
 use App\Models\User;
+use App\Services\Reports\StudentAcademicReportService;
 
 /**
- * Create the base records needed for academic report tests.
+- Create the base records needed for academic report tests.
  */
 function makeAcademicReportsTestContext(): array
 {
@@ -63,7 +64,7 @@ function makeAcademicReportsTestContext(): array
 }
 
 /**
- * Create another student enrollment in the supplied class.
+- Create another student enrollment in the supplied class.
  */
 function createAcademicReportsTestEnrollment(
     AcademicClass $academicClass
@@ -476,4 +477,174 @@ it('displays empty states when attendance and examination records do not exist',
 
     $examinationResponse->assertOk()
         ->assertSee('No examinations match these filters.');
+});
+
+// Student academic report PDF export
+
+it('allows staff to download a student academic report PDF', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    $response = $this->actingAs($records['staff'])
+        ->get(route(
+            'reports.students.export.pdf',
+            $records['student']
+        ));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+
+    expect(substr($response->getContent(), 0, 5))
+        ->toBe('%PDF-');
+});
+
+it('requires authentication to export student reports', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    $this->actingAsGuest()
+        ->get(route(
+            'reports.students.export.pdf',
+            $records['student']
+        ))
+        ->assertRedirect(route('login'));
+});
+
+it('allows administrators to export archived student reports', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    $records['student']->delete();
+
+    $response = $this->actingAs($records['admin'])
+        ->get(route(
+            'reports.students.export.pdf',
+            $records['student']->id
+        ));
+
+    $response->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+
+    expect(substr($response->getContent(), 0, 5))
+        ->toBe('%PDF-');
+});
+
+it('prevents staff from exporting archived student reports', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    $records['student']->delete();
+
+    $this->actingAs($records['staff'])
+        ->get(route(
+            'reports.students.export.pdf',
+            $records['student']->id
+        ))
+        ->assertForbidden();
+});
+
+it('records successful student PDF exports in the audit log', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    $this->actingAs($records['staff'])
+        ->get(route(
+            'reports.students.export.pdf',
+            $records['student']
+        ))
+        ->assertOk();
+
+    $this->assertDatabaseHas('audit_logs', [
+        'user_id' => $records['staff']->id,
+        'event' => 'reports.student.exported',
+        'auditable_id' => $records['student']->id,
+    ]);
+});
+
+it('does not audit unauthorized student PDF exports', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    $records['student']->delete();
+
+    $this->actingAs($records['staff'])
+        ->get(route(
+            'reports.students.export.pdf',
+            $records['student']->id
+        ))
+        ->assertForbidden();
+
+    $this->assertDatabaseMissing('audit_logs', [
+        'event' => 'reports.student.exported',
+        'auditable_id' => $records['student']->id,
+    ]);
+});
+
+it('loads the complete attendance history for student PDF exports', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    for ($i = 1; $i <= 12; $i++) {
+        $session = AttendanceSession::create([
+            'teaching_assignment_id' => $records['teachingAssignment']->id,
+            'attendance_date' => today()->subDays($i)->toDateString(),
+            'created_by' => $records['staff']->id,
+        ]);
+
+        StudentAttendance::create([
+            'attendance_session_id' => $session->id,
+            'student_enrollment_id' => $records['enrollment']->id,
+            'status' => StudentAttendance::STATUS_PRESENT,
+        ]);
+    }
+
+    $browserResponse = $this->actingAs($records['staff'])
+        ->get(route('reports.students.show', $records['student']));
+
+    $browserResponse->assertOk()
+        ->assertViewHas('attendanceRecords', function ($records): bool {
+            return $records->count() === 10
+                && $records->total() === 12;
+        });
+
+    $report = app(
+        StudentAcademicReportService::class
+    )->forExport($records['student']);
+
+    expect($report['attendanceRecords'])->toHaveCount(12)
+        ->and($report['attendanceSummary']->get('present'))
+        ->toBe(12);
+});
+
+it('loads the complete examination history for student PDF exports', function (): void {
+    $records = makeAcademicReportsTestContext();
+
+    for ($i = 1; $i <= 12; $i++) {
+        $examination = Examination::create([
+            'teaching_assignment_id' => $records['teachingAssignment']->id,
+            'title' => 'Export Examination '.$i,
+            'exam_type' => Examination::TYPE_QUIZ,
+            'exam_date' => today()->subDays($i)->toDateString(),
+            'maximum_marks' => '100.00',
+            'pass_marks' => '40.00',
+            'created_by' => $records['staff']->id,
+        ]);
+
+        ExaminationResult::create([
+            'examination_id' => $examination->id,
+            'student_enrollment_id' => $records['enrollment']->id,
+            'marks_obtained' => '90.00',
+            'grade' => 'A',
+        ]);
+    }
+
+    $browserResponse = $this->actingAs($records['staff'])
+        ->get(route('reports.students.show', $records['student']));
+
+    $browserResponse->assertOk()
+        ->assertViewHas('examinationResults', function ($results): bool {
+            return $results->count() === 10
+                && $results->total() === 12;
+        });
+
+    $report = app(
+        StudentAcademicReportService::class
+    )->forExport($records['student']);
+
+    expect($report['examinationResults'])->toHaveCount(12)
+        ->and($report['gradeSummary']->get('A'))
+        ->toBe(12);
 });

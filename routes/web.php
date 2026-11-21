@@ -12,6 +12,7 @@ use App\Http\Controllers\ExaminationResultController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReportExportController;
 use App\Http\Controllers\StudentAttendanceController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentCsvController;
@@ -80,6 +81,13 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
     Route::get('/reports/students/{student}', [ReportController::class, 'student'])
         ->withTrashed()
         ->name('reports.students.show');
+
+    Route::get(
+        '/reports/students/{student}/export/pdf',
+        [ReportExportController::class, 'studentPdf']
+    )
+        ->withTrashed()
+        ->name('reports.students.export.pdf');
 
     // User management
     Route::get('/users', [UserController::class, 'index'])
