@@ -39,6 +39,13 @@
                     Download PDF
                 </a>
 
+                <a
+                    href="{{ route('reports.students.export.excel', $student) }}"
+                    class="students-page__button"
+                >
+                    Download Excel
+                </a>
+
                 <button
                     type="button"
                     class="students-page__button"
