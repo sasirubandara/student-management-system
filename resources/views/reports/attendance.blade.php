@@ -33,6 +33,30 @@
                     Print Current View
                 </button>
 
+                <a
+                    href="{{ route('reports.attendance.export.pdf', request()->only([
+                        'academic_class_id',
+                        'subject_id',
+                        'start_date',
+                        'end_date',
+                    ])) }}"
+                    class="students-page__button"
+                >
+                    Download PDF
+                </a>
+
+                <a
+                    href="{{ route('reports.attendance.export.excel', request()->only([
+                        'academic_class_id',
+                        'subject_id',
+                        'start_date',
+                        'end_date',
+                    ])) }}"
+                    class="students-page__button"
+                >
+                    Download Excel
+                </a>
+
             </div>
         </header>
 

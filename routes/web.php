@@ -72,8 +72,28 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
     Route::get('/reports/attendance', [ReportController::class, 'attendance'])
         ->name('reports.attendance');
 
+    Route::get(
+        '/reports/attendance/export/pdf',
+        [ReportExportController::class, 'attendancePdf']
+    )->name('reports.attendance.export.pdf');
+
+    Route::get(
+        '/reports/attendance/export/excel',
+        [ReportExportController::class, 'attendanceExcel']
+    )->name('reports.attendance.export.excel');
+
     Route::get('/reports/examinations', [ReportController::class, 'examinations'])
         ->name('reports.examinations');
+
+    Route::get(
+        '/reports/examinations/export/pdf',
+        [ReportExportController::class, 'examinationsPdf']
+    )->name('reports.examinations.export.pdf');
+
+    Route::get(
+        '/reports/examinations/export/excel',
+        [ReportExportController::class, 'examinationsExcel']
+    )->name('reports.examinations.export.excel');
 
     Route::get('/reports/students', [ReportController::class, 'students'])
         ->name('reports.students.index');
@@ -88,6 +108,13 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
     )
         ->withTrashed()
         ->name('reports.students.export.pdf');
+
+    Route::get(
+        '/reports/students/{student}/export/excel',
+        [ReportExportController::class, 'studentExcel']
+    )
+        ->withTrashed()
+        ->name('reports.students.export.excel');
 
     // User management
     Route::get('/users', [UserController::class, 'index'])

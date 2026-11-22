@@ -256,9 +256,28 @@ Foreign-key restrictions protect examinations, student enrollments, and historic
 - Summarize examination counts, recorded results, and grade distributions across matching examinations.
 - Allow administrators to view archived students in the report directory and open their historical academic reports; staff users can view active student reports only.
 - Provide browser-based print layouts for student, attendance, and examination reports.
+- Download student academic reports as **PDF** or **Excel (XLSX)** files, including enrollment history, attendance, examination results, and summaries.
+- Download attendance reports as **PDF** or **XLSX**, filtered by academic class, subject, and inclusive date range.
+- Download examination reports as **PDF** or **XLSX**, using the same class, subject, and date filters.
+- Display human-readable class and subject names in filtered PDF and XLSX reports instead of database IDs.
+- Include all matching records in downloaded reports rather than limiting exports to the current browser pagination page.
+- Generate downloadable reports even when no records match the filters, with informative empty states.
+- Restrict archived student report downloads to administrators; staff can export permitted active student reports.
+- Record successful exports in the audit log, including the report category and file format (`pdf` or `xlsx`).
+- Treat untrusted text in XLSX exports as strings to prevent spreadsheet formula interpretation.
 - Keep reports read-only and reuse existing academic records without introducing additional database tables.
 
 Reports preserve historical context by displaying related archived classes, subjects, and teachers where those records are available. Attendance and examination report summaries are calculated across all records matching the selected filters, not only the current pagination page.
+
+**Report download formats**
+
+| Report | PDF | Excel (XLSX) | Supported filters |
+|---|:---:|:---:|---|
+| Individual student academic report | Yes | Yes | Student record; archived access is administrator-only |
+| Attendance report | Yes | Yes | Academic class, subject, start date, end date |
+| Examination report | Yes | Yes | Academic class, subject, start date, end date |
+
+Exports use the same report-selection and validation services as the browser reports. An end date earlier than the start date is rejected. Successful PDF/XLSX generation is audited; an audit entry indicates a generated response, not confirmation that a user completed the download on their device.
 
 ### Dashboard and Statistics
 
@@ -383,6 +402,7 @@ Audit events include:
 - Student CSV template downloads.
 - Student document uploads and deletions.
 - Application settings updates (`application_settings.updated`).
+- Academic report exports (`reports.student.exported`, `reports.attendance.exported`, and `reports.examinations.exported`), recording the export format and report type.
 
 **Audit log management**
 
@@ -493,6 +513,9 @@ Administrators can:
 | View examinations | Yes | Yes |
 | View academic reports | Yes | Yes |
 | View archived student academic reports | Yes | No |
+| Export active student academic reports (PDF/XLSX) | Yes | Yes |
+| Export archived student academic reports (PDF/XLSX) | Yes | No |
+| Export attendance and examination reports (PDF/XLSX) | Yes | Yes |
 | Create examinations | Yes | Yes |
 | Update examinations | Yes | Yes |
 | Remove examinations | Yes | No |
@@ -528,6 +551,8 @@ Administrators can:
 | JavaScript | Frontend programming |
 | Vite 8 | Frontend asset bundling |
 | Pest 5 | Automated testing |
+| DomPDF (`barryvdh/laravel-dompdf`) | Generate PDF academic reports |
+| Laravel Excel / PhpSpreadsheet | Generate XLSX academic reports and preserve untrusted values as text |
 | Git | Version control |
 | GitHub | Source code hosting and collaboration |
 | GitHub Actions | Continuous integration |
@@ -772,6 +797,16 @@ Run the academic reports feature tests:
 php artisan test tests/Feature/AcademicReportsTest.php
 ```
 
+The academic-report test suite covers authentication, archived-student authorization, valid and invalid filters, audit metadata, empty exports, records beyond browser pagination, and XLSX formula-injection protection.
+
+**Memory note for local testing:** PDF/XLSX generation can require more memory than the default PHP CLI limit. On the Windows development environment, the full **571-test** suite passed with a temporary 512 MB CLI memory allowance:
+
+```powershell
+php -d memory_limit=512M artisan test
+```
+
+The setting applies only to that PHP invocation. It is a tested local configuration, **not** an established production memory requirement. Review resource consumption with representative dataset sizes before production deployment.
+
 Run the application settings and localization tests:
 
 ```bash
@@ -884,8 +919,6 @@ The following features are potential future development milestones.
 
 ### Advanced Features
 
-- User profile and account settings.
-- Advanced report exporting (PDF and Excel).
 - Academic year and term management.
 - Student promotion and academic progression.
 - REST API and API authentication.
@@ -893,6 +926,7 @@ The following features are potential future development milestones.
 
 ### Further Quality Improvements
 
+- Performance testing and memory optimization for large PDF/XLSX exports.
 - Additional automated test coverage.
 - Application security improvements.
 - Database backup and recovery.
@@ -905,6 +939,7 @@ The following features are potential future development milestones.
 student-management-system/
 ├── app/
 │   ├── Console/
+│   ├── Exports/
 │   ├── Http/
 │   │   ├── Controllers/
 │   │   ├── Middleware/
@@ -913,6 +948,7 @@ student-management-system/
 │   ├── Models/
 │   ├── Policies/
 │   └── Services/
+│       └── Reports/
 ├── bootstrap/
 ├── config/
 ├── database/
@@ -924,6 +960,8 @@ student-management-system/
 │   ├── js/
 │   └── views/
 │       ├── audit-logs/
+│       ├── reports/
+│       │   └── exports/
 │       ├── notifications/
 │       ├── settings/
 │       └── students/
@@ -960,12 +998,17 @@ student-management-system/
 - Validate configuration values and escape configurable institution names in HTML.
 - Keep application credentials outside database-backed settings.
 - Preserve UTC timestamps and historical academic data when display preferences change.
+- Validate class, subject, and date filters for academic report downloads.
+- Apply active-account and student archive authorization checks to PDF and XLSX exports.
+- Keep academic report exports non-public and avoid caching student PDF responses.
+- Record successful export metadata without copying private academic record contents into the audit log.
+- Treat user-controlled spreadsheet values as text to prevent formula injection.
 - Review authorization rules when adding new functionality.
 - Test security-sensitive changes before merging them into `main`.
 
 ## Project Status
 
-**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
+**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
@@ -975,11 +1018,11 @@ Student document management allows administrators and staff to upload, view, and
 
 The dashboard displays summary cards, enrollment and attendance status totals, upcoming examinations, and recent student, enrollment, and attendance records. Archived student and teacher counts are visible to administrators only.
 
-Academic reports include student enrollment, attendance, and examination history, as well as filtered attendance and examination summaries. Administrators can view archived students' historical academic reports, while staff users are restricted to active student reports.
+Academic reports include student enrollment, attendance, and examination history, as well as filtered attendance and examination summaries. Each report category supports PDF and Excel (XLSX) downloads. Attendance and examination exports support class, subject, and date filtering with readable labels and complete matching datasets. Administrators can view and export archived students' historical academic reports, while staff users are restricted to active student reports. Exports include authorization checks, audit events, and spreadsheet formula-injection protection.
 
 Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Historical academic records are preserved through database relationships and deletion restrictions.
 
-The audit logging system records important authentication, user management, student, teacher, enrollment, attendance, examination, academic management, CSV, and document activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
+The audit logging system records important authentication, user management, student, teacher, enrollment, attendance, examination, academic management, CSV, document, and PDF/XLSX academic report export activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
 
 Audit records are designed to exclude sensitive credentials and unnecessary personal information. Changes to student and teacher records are tracked through changed field names, while document audit entries avoid storing file paths, original filenames, descriptions, and file contents. The application provides a read-only audit log interface.
 
@@ -989,7 +1032,7 @@ Advanced search and filtering, dashboard analytics, and the enhanced Notificatio
 
 The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, academic year defaults apply to new class forms, and notification timestamps use the selected display preferences.
 
-Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, and integration regression coverage.
+Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic report export security and completeness, and integration regression coverage. The full suite passed **571 tests** using a temporary 512 MB PHP CLI memory limit during local verification.
 
 ---
 

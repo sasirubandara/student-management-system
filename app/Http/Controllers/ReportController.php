@@ -10,6 +10,9 @@ use App\Models\Student;
 use App\Models\StudentAttendance;
 use App\Models\StudentEnrollment;
 use App\Models\Subject;
+use App\Services\Reports\AttendanceReportService;
+use App\Services\Reports\ExaminationReportService;
+use App\Services\Reports\ReportFilterService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -29,75 +32,16 @@ class ReportController extends Controller
     /**
      * Display attendance reports with class, subject and date filters.
      */
-    public function attendance(Request $request): View
-    {
+    public function attendance(
+        Request $request,
+        ReportFilterService $reportFilters,
+        AttendanceReportService $attendanceReports
+    ): View {
         Gate::authorize('viewAny', AttendanceSession::class);
 
-        $filters = $request->validate([
-            'academic_class_id' => [
-                'nullable',
-                'integer',
-                'exists:academic_classes,id',
-            ],
-            'subject_id' => [
-                'nullable',
-                'integer',
-                'exists:subjects,id',
-            ],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-        ]);
+        $filters = $reportFilters->validate($request);
 
-        $sessionsQuery = AttendanceSession::query()
-            ->with([
-                'teachingAssignment.teacher' => fn ($relation) => $relation->withTrashed(),
-
-                'teachingAssignment.academicClass' => fn ($relation) => $relation->withTrashed(),
-
-                'teachingAssignment.subject' => fn ($relation) => $relation->withTrashed(),
-            ])
-            ->withCount([
-                'studentAttendances',
-
-                'studentAttendances as present_count' => fn (Builder $query) => $query->where(
-                    'status',
-                    'present'
-                ),
-
-                'studentAttendances as absent_count' => fn (Builder $query) => $query->where(
-                    'status',
-                    'absent'
-                ),
-
-                'studentAttendances as late_count' => fn (Builder $query) => $query->where(
-                    'status',
-                    'late'
-                ),
-
-                'studentAttendances as excused_count' => fn (Builder $query) => $query->where(
-                    'status',
-                    'excused'
-                ),
-            ])
-            ->whereHas('teachingAssignment', function (Builder $query) use ($filters): void {
-                $query
-                    ->when(
-                        $filters['academic_class_id'] ?? null,
-                        fn (Builder $query, $id) => $query->where('academic_class_id', $id)
-                    )
-                    ->when(
-                        $filters['subject_id'] ?? null,
-                        fn (Builder $query, $id) => $query->where('subject_id', $id)
-                    );
-            })
-            ->when(
-                $filters['start_date'] ?? null,
-                fn (Builder $query, $date) => $query->whereDate('attendance_date', '>=', $date)
-            )
-            ->when(
-                $filters['end_date'] ?? null,
-                fn (Builder $query, $date) => $query->whereDate('attendance_date', '<=', $date)
-            );
+        $sessionsQuery = $attendanceReports->sessionsQuery($filters);
 
         $totalSessions = (clone $sessionsQuery)->count();
 
@@ -111,44 +55,8 @@ class ReportController extends Controller
          * Calculate attendance totals across all matching sessions,
          * not just the currently displayed page.
          */
-        $attendanceSummaryQuery = DB::table('student_attendances')
-            ->join(
-                'attendance_sessions',
-                'attendance_sessions.id',
-                '=',
-                'student_attendances.attendance_session_id'
-            )
-            ->join(
-                'teaching_assignments',
-                'teaching_assignments.id',
-                '=',
-                'attendance_sessions.teaching_assignment_id'
-            )
-            ->when(
-                $filters['academic_class_id'] ?? null,
-                fn ($query, $id) => $query->where('teaching_assignments.academic_class_id', $id)
-            )
-            ->when(
-                $filters['subject_id'] ?? null,
-                fn ($query, $id) => $query->where('teaching_assignments.subject_id', $id)
-            )
-            ->when(
-                $filters['start_date'] ?? null,
-                fn ($query, $date) => $query->whereDate('attendance_sessions.attendance_date', '>=', $date)
-            )
-            ->when(
-                $filters['end_date'] ?? null,
-                fn ($query, $date) => $query->whereDate('attendance_sessions.attendance_date', '<=', $date)
-            );
-
-        $attendanceSummary = $attendanceSummaryQuery
-            ->select(
-                'student_attendances.status',
-                DB::raw('COUNT(*) as total')
-            )
-            ->groupBy('student_attendances.status')
-            ->pluck('total', 'student_attendances.status')
-            ->map(fn ($total) => (int) $total);
+        $attendanceSummary = $attendanceReports
+            ->attendanceSummary($filters);
 
         $classes = AcademicClass::withTrashed()
             ->orderBy('name')
@@ -171,53 +79,17 @@ class ReportController extends Controller
     /**
      * Display examination and grade reports with filters.
      */
-    public function examinations(Request $request): View
-    {
+    public function examinations(
+        Request $request,
+        ReportFilterService $reportFilters,
+        ExaminationReportService $examinationReports
+    ): View {
         Gate::authorize('viewAny', Examination::class);
 
-        $filters = $request->validate([
-            'academic_class_id' => [
-                'nullable',
-                'integer',
-                'exists:academic_classes,id',
-            ],
-            'subject_id' => [
-                'nullable',
-                'integer',
-                'exists:subjects,id',
-            ],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-        ]);
+        $filters = $reportFilters->validate($request);
 
-        $examinationsQuery = Examination::query()
-            ->with([
-                'teachingAssignment.teacher' => fn ($relation) => $relation->withTrashed(),
-
-                'teachingAssignment.academicClass' => fn ($relation) => $relation->withTrashed(),
-
-                'teachingAssignment.subject' => fn ($relation) => $relation->withTrashed(),
-            ])
-            ->withCount('results')
-            ->whereHas('teachingAssignment', function (Builder $query) use ($filters): void {
-                $query
-                    ->when(
-                        $filters['academic_class_id'] ?? null,
-                        fn (Builder $query, $id) => $query->where('academic_class_id', $id)
-                    )
-                    ->when(
-                        $filters['subject_id'] ?? null,
-                        fn (Builder $query, $id) => $query->where('subject_id', $id)
-                    );
-            })
-            ->when(
-                $filters['start_date'] ?? null,
-                fn (Builder $query, $date) => $query->whereDate('exam_date', '>=', $date)
-            )
-            ->when(
-                $filters['end_date'] ?? null,
-                fn (Builder $query, $date) => $query->whereDate('exam_date', '<=', $date)
-            );
+        $examinationsQuery = $examinationReports
+            ->examinationsQuery($filters);
 
         $totalExaminations = (clone $examinationsQuery)->count();
 
@@ -231,45 +103,8 @@ class ReportController extends Controller
          * Calculate grade totals across every matching examination,
          * rather than only the current page.
          */
-        $gradeSummaryQuery = DB::table('examination_results')
-            ->join(
-                'examinations',
-                'examinations.id',
-                '=',
-                'examination_results.examination_id'
-            )
-            ->join(
-                'teaching_assignments',
-                'teaching_assignments.id',
-                '=',
-                'examinations.teaching_assignment_id'
-            )
-            ->when(
-                $filters['academic_class_id'] ?? null,
-                fn ($query, $id) => $query->where('teaching_assignments.academic_class_id', $id)
-            )
-            ->when(
-                $filters['subject_id'] ?? null,
-                fn ($query, $id) => $query->where('teaching_assignments.subject_id', $id)
-            )
-            ->when(
-                $filters['start_date'] ?? null,
-                fn ($query, $date) => $query->whereDate('examinations.exam_date', '>=', $date)
-            )
-            ->when(
-                $filters['end_date'] ?? null,
-                fn ($query, $date) => $query->whereDate('examinations.exam_date', '<=', $date)
-            );
-
-        $gradeSummary = $gradeSummaryQuery
-            ->select(
-                'examination_results.grade',
-                DB::raw('COUNT(*) as total')
-            )
-            ->groupBy('examination_results.grade')
-            ->orderBy('examination_results.grade')
-            ->pluck('total', 'examination_results.grade')
-            ->map(fn ($total) => (int) $total);
+        $gradeSummary = $examinationReports
+            ->gradeSummary($filters);
 
         $classes = AcademicClass::withTrashed()
             ->orderBy('name')

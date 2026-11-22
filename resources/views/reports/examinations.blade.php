@@ -25,6 +25,30 @@
                     All Reports
                 </a>
 
+                <a
+                    href="{{ route('reports.examinations.export.pdf', request()->only([
+                        'academic_class_id',
+                        'subject_id',
+                        'start_date',
+                        'end_date',
+                    ])) }}"
+                    class="students-page__button"
+                >
+                    Download PDF
+                </a>
+
+                <a
+                    href="{{ route('reports.examinations.export.excel', request()->only([
+                        'academic_class_id',
+                        'subject_id',
+                        'start_date',
+                        'end_date',
+                    ])) }}"
+                    class="students-page__button"
+                >
+                    Download Excel
+                </a>
+
                 <button
                     type="button"
                     class="students-page__button"
