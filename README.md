@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, administrator-controlled user account management, advanced search and filtering, dashboard analytics, and centralized application settings and configuration management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic year and term management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, administrator-controlled user account management, advanced search and filtering, dashboard analytics, and centralized application settings and configuration management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -113,6 +113,37 @@ Enrollment records do not use soft deletes. Database relationships protect enrol
 - Restore archived teachers.
 
 Teacher records are maintained separately from system user accounts. Teacher profiles contain personal information, contact information, and employment information.
+
+### Academic Year and Term Management
+
+The academic-calendar module registers academic years and their terms, with validation of inclusive date ranges and role-based access.
+
+**Academic years**
+
+- Create, list, search, view, and update academic years with numeric year identifiers, names, and start/end dates.
+- Support academic years that span two calendar years.
+- Reject duplicate year identifiers, invalid date ranges, and overlapping academic-year periods.
+- Prevent changes to an academic year's boundaries that would place existing terms outside that year.
+
+**Academic terms**
+
+- Create and update named, numbered terms belonging to registered academic years.
+- View terms associated with an academic year in term-number order.
+- Reject duplicate term numbers within the same year, date ranges outside the parent year, and overlapping terms within that year.
+- Allow consecutive terms without overlapping dates.
+
+**Permissions, integrity, and compatibility**
+
+- Active administrators can view, create, and update academic years and terms; active staff can view them but cannot modify them.
+- Enforce date and overlap rules through dedicated services, including requests that do not originate from an HTTP controller.
+- Use transactions and a shared InnoDB row lock to coordinate calendar writes performed through the application services.
+- Write successful changes and their audit events in the same database transaction. Unchanged updates do not create new update audit events.
+- Keep the existing numeric academic-year field on academic classes and the numeric `current_academic_year` application setting; calendar registration does not automatically migrate old class records.
+- Offer registered years as suggestions in the administrator Settings interface without requiring every configured numeric year to have a calendar record.
+
+Deleting academic years and terms is not supported through the application interface in this feature. The concurrency mechanism has been verified against selected overlapping-write scenarios on an isolated MySQL database; this is not a claim of exhaustive concurrency testing.
+
+For detailed business rules, implementation notes, and limitations, see [Academic Year and Term Management](docs/academic-calendar.md).
 
 ### Academic Class Management
 
@@ -355,7 +386,7 @@ Active administrators can manage institution-wide preferences through the **Sett
 | Institution email | Optional institutional contact email. |
 | Institution phone | Optional contact number stored as a string. |
 | Institution address | Optional institutional address. |
-| Current academic year | Default year for newly created academic classes (2000–2100). |
+| Current academic year | Numeric default year for newly created academic classes (2000–2100); registered calendar years are offered as suggestions. |
 | Timezone | Preferred timezone for notification timestamp display. |
 | Date format | Preferred date format for notification timestamps. |
 
@@ -368,7 +399,8 @@ Active administrators can manage institution-wide preferences through the **Sett
 - Validate settings through `UpdateApplicationSettingRequest` and enforce active-administrator permissions through `ApplicationSettingPolicy`.
 - Use database transactions and record locking for settings updates and their audit records.
 - Record changed settings with their previous and new values; unchanged submissions do not generate settings update audit events.
-- Preserve existing academic years when the configured default changes.
+- Preserve existing academic-class year values when the configured default changes.
+- Suggest registered academic calendar years in the settings form without requiring a matching calendar record or changing the existing numeric setting.
 - Format dates and timestamps through the reusable `DateFormattingService` without changing Laravel's global timezone or stored UTC timestamps.
 - Provide a responsive settings form with accessible validation messages and keyboard focus indicators.
 
@@ -394,6 +426,7 @@ Audit events include:
 - Examination creation, updates, and deletion.
 - Examination result creation, updates, and deletion.
 - Academic class creation, updates, and archiving.
+- Academic year and term creation and updates (`academic_year.created`, `academic_year.updated`, `academic_term.created`, and `academic_term.updated`).
 - Subject creation, updates, and archiving.
 - Academic class subject assignments and removals.
 - Teaching assignment creation, updates, and deletion.
@@ -489,6 +522,10 @@ Administrators can:
 | Create student enrollments | Yes | No |
 | Update enrollment details and statuses | Yes | No |
 | Permanently delete enrollment records | No | No |
+| View academic years and terms | Yes | Yes |
+| Create academic years and terms | Yes | No |
+| Update academic years and terms | Yes | No |
+| Delete academic years and terms through the application | No | No |
 | View academic classes | Yes | Yes |
 | Create academic classes | Yes | No |
 | Update academic classes | Yes | No |
@@ -687,7 +724,7 @@ Use strong, unique passwords and keep account credentials private.
 After running the migrations and creating an administrator account, log in and select **Settings** or visit `/settings`.
 
 1. Enter the institution name and optional contact details.
-2. Configure the current academic year, timezone, and date format.
+2. Configure the current academic year, timezone, and date format. Registered academic calendar years are suggested when available, but a registered year is not required.
 3. Select **Save Settings** to persist the changes.
 4. Verify the updated navigation branding, new academic class defaults, and notification timestamps.
 
@@ -799,13 +836,13 @@ php artisan test tests/Feature/AcademicReportsTest.php
 
 The academic-report test suite covers authentication, archived-student authorization, valid and invalid filters, audit metadata, empty exports, records beyond browser pagination, and XLSX formula-injection protection.
 
-**Memory note for local testing:** PDF/XLSX generation can require more memory than the default PHP CLI limit. On the Windows development environment, the full **571-test** suite passed with a temporary 512 MB CLI memory allowance:
+**Memory note for local testing:** PDF/XLSX generation can require more memory than the default PHP CLI limit. A temporary 512 MB CLI memory allowance can be used if necessary:
 
 ```powershell
 php -d memory_limit=512M artisan test
 ```
 
-The setting applies only to that PHP invocation. It is a tested local configuration, **not** an established production memory requirement. Review resource consumption with representative dataset sizes before production deployment.
+The setting applies only to that PHP invocation and is **not** an established production memory requirement. The latest full local regression run passed with the standard `php artisan test` command: **632 tests and 2,354 assertions**. Review resource consumption with representative dataset sizes before production deployment.
 
 Run the application settings and localization tests:
 
@@ -818,6 +855,24 @@ php artisan test tests/Feature/WebMiddlewareConfigurationTest.php
 ```
 
 The notification controller tests also verify configured timestamp rendering. Settings tests cover authorization, validation, persistence, caching, audit logging, transaction rollback, HTML escaping, and preservation of historical academic records.
+
+Run the academic-calendar feature tests:
+
+```bash
+php artisan test tests/Feature/AcademicCalendarAuditIntegrityTest.php
+php artisan test tests/Feature/AcademicCalendarAuthorizationTest.php
+php artisan test tests/Feature/AcademicCalendarBackwardCompatibilityTest.php
+php artisan test tests/Feature/AcademicCalendarDatabaseTest.php
+php artisan test tests/Feature/AcademicCalendarHttpValidationTest.php
+php artisan test tests/Feature/AcademicCalendarManagementTest.php
+php artisan test tests/Feature/AcademicCalendarNavigationTest.php
+php artisan test tests/Feature/AcademicCalendarSettingsIntegrationTest.php
+php artisan test tests/Feature/AcademicCalendarTransactionTest.php
+php artisan test tests/Feature/AcademicTermServiceTest.php
+php artisan test tests/Feature/AcademicYearServiceTest.php
+```
+
+The academic-calendar tests cover dates and overlaps, database constraints, permissions, navigation, settings compatibility, audit integrity, and transactional rollback. MySQL concurrency checks were also performed separately on an isolated test database with independent Laravel processes; those local scripts and the test environment are not part of the repository.
 
 Run the grade calculator unit tests:
 
@@ -915,11 +970,11 @@ git switch -c feature/your-feature-name
 
 ## Project Roadmap
 
-The following features are potential future development milestones.
+The following features are potential future development milestones. Academic Year and Term Management is implemented; see [the feature documentation](docs/academic-calendar.md).
 
 ### Advanced Features
 
-- Academic year and term management.
+- Integration of registered academic calendar years with academic-class selection while preserving existing numeric year values.
 - Student promotion and academic progression.
 - REST API and API authentication.
 - Expanded report branding and date-format integration.
@@ -948,6 +1003,7 @@ student-management-system/
 │   ├── Models/
 │   ├── Policies/
 │   └── Services/
+│       ├── AcademicCalendar/
 │       └── Reports/
 ├── bootstrap/
 ├── config/
@@ -959,6 +1015,8 @@ student-management-system/
 │   ├── css/
 │   ├── js/
 │   └── views/
+│       ├── academic-years/
+│       ├── academic-terms/
 │       ├── audit-logs/
 │       ├── reports/
 │       │   └── exports/
@@ -966,6 +1024,8 @@ student-management-system/
 │       ├── settings/
 │       └── students/
 │           └── documents/
+├── docs/
+│   └── academic-calendar.md
 ├── routes/
 ├── storage/
 │   └── app/
@@ -998,6 +1058,8 @@ student-management-system/
 - Validate configuration values and escape configurable institution names in HTML.
 - Keep application credentials outside database-backed settings.
 - Preserve UTC timestamps and historical academic data when display preferences change.
+- Reject overlapping academic-year and term periods and use transactional calendar writes with audit logging.
+- Preserve the existing numeric academic-year fields when introducing new calendar records.
 - Validate class, subject, and date filters for academic report downloads.
 - Apply active-account and student archive authorization checks to PDF and XLSX exports.
 - Keep academic report exports non-public and avoid caching student PDF responses.
@@ -1008,7 +1070,9 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, student CSV import and export, student document management, teacher management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
+**Current status:** Student management, student CSV import and export, student document management, teacher management, academic year and term management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
+
+Academic years and terms can be created and updated by active administrators and viewed by active staff. Calendar date validation prevents overlapping years and terms, and the calendar integrates with Application Settings without replacing existing numeric year identifiers. Calendar writes and audit events use shared database transactions. See [Academic Calendar Documentation](docs/academic-calendar.md).
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
@@ -1022,7 +1086,7 @@ Academic reports include student enrollment, attendance, and examination history
 
 Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Historical academic records are preserved through database relationships and deletion restrictions.
 
-The audit logging system records important authentication, user management, student, teacher, enrollment, attendance, examination, academic management, CSV, document, and PDF/XLSX academic report export activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
+The audit logging system records important authentication, user management, student, teacher, enrollment, attendance, examination, academic class, academic year and term, CSV, document, and PDF/XLSX academic report export activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
 
 Audit records are designed to exclude sensitive credentials and unnecessary personal information. Changes to student and teacher records are tracked through changed field names, while document audit entries avoid storing file paths, original filenames, descriptions, and file contents. The application provides a read-only audit log interface.
 
@@ -1030,9 +1094,9 @@ The in-app notification system informs other active users about student registra
 
 Advanced search and filtering, dashboard analytics, and the enhanced Notification Center improve access to academic information and system activity. Notification filters, pagination, read actions, and accessible status indicators support day-to-day use.
 
-The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, academic year defaults apply to new class forms, and notification timestamps use the selected display preferences.
+The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Registered academic calendar years appear as suggestions while the saved setting remains numeric. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, academic year defaults apply to new class forms, and notification timestamps use the selected display preferences.
 
-Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic report export security and completeness, and integration regression coverage. The full suite passed **571 tests** using a temporary 512 MB PHP CLI memory limit during local verification.
+Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic report export security and completeness, and integration regression coverage. The latest complete local regression run passed **632 tests (2,354 assertions)** using `php artisan test`; Laravel Pint passed across **191 files**. Independent MySQL concurrency experiments exercised overlapping academic-year and term creation with an isolated test database.
 
 ---
 
