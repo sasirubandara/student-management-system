@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AcademicClassController;
 use App\Http\Controllers\AcademicClassSubjectController;
+use App\Http\Controllers\AcademicTermController;
+use App\Http\Controllers\AcademicYearController;
 use App\Http\Controllers\ApplicationSettingController;
 use App\Http\Controllers\AttendanceSessionController;
 use App\Http\Controllers\AuditLogController;
@@ -246,6 +248,55 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
     // Teacher profile
     Route::get('/teachers/{teacher}', [TeacherController::class, 'show'])
         ->name('teachers.show');
+
+    // Academic year management
+    Route::get('/academic-years', [AcademicYearController::class, 'index'])
+        ->name('academic-years.index');
+
+    Route::get('/academic-years/create', [AcademicYearController::class, 'create'])
+        ->name('academic-years.create');
+
+    Route::post('/academic-years', [AcademicYearController::class, 'store'])
+        ->name('academic-years.store');
+
+    // Academic term creation within a specific academic year
+    Route::get(
+        '/academic-years/{academicYear}/terms/create',
+        [AcademicTermController::class, 'create']
+    )->name('academic-years.terms.create');
+
+    Route::post(
+        '/academic-years/{academicYear}/terms',
+        [AcademicTermController::class, 'store']
+    )->name('academic-years.terms.store');
+
+    // Academic year editing
+    Route::get(
+        '/academic-years/{academicYear}/edit',
+        [AcademicYearController::class, 'edit']
+    )->name('academic-years.edit');
+
+    Route::put(
+        '/academic-years/{academicYear}',
+        [AcademicYearController::class, 'update']
+    )->name('academic-years.update');
+
+    // Academic year details and its terms
+    Route::get(
+        '/academic-years/{academicYear}',
+        [AcademicYearController::class, 'show']
+    )->name('academic-years.show');
+
+    // Academic term editing
+    Route::get(
+        '/academic-terms/{academicTerm}/edit',
+        [AcademicTermController::class, 'edit']
+    )->name('academic-terms.edit');
+
+    Route::put(
+        '/academic-terms/{academicTerm}',
+        [AcademicTermController::class, 'update']
+    )->name('academic-terms.update');
 
     // Academic class management
     Route::get('/academic-classes', [AcademicClassController::class, 'index'])

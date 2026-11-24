@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateApplicationSettingRequest;
+use App\Models\AcademicYear;
 use App\Models\ApplicationSetting;
 use App\Services\ApplicationSettingsService;
 use DateTimeZone;
@@ -20,12 +21,17 @@ class ApplicationSettingController extends Controller
     ): View {
         Gate::authorize('viewAny', ApplicationSetting::class);
 
+        $academicYears = AcademicYear::query()
+            ->orderByDesc('year')
+            ->get(['id', 'year', 'name', 'start_date', 'end_date']);
+
         return view('settings.edit', [
             'settings' => $settingsService->all(),
             'timezones' => DateTimeZone::listIdentifiers(
                 DateTimeZone::ALL
             ),
             'dateFormats' => ApplicationSetting::DATE_FORMATS,
+            'academicYears' => $academicYears,
         ]);
     }
 
