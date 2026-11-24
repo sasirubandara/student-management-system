@@ -74,6 +74,17 @@
             </a>
         @endcan
 
+        @can('viewAny', \App\Models\AcademicYear::class)
+            <a
+                href="{{ route('academic-years.index') }}"
+                @if (request()->routeIs('academic-years.*', 'academic-terms.*'))
+                    aria-current="page"
+                @endif
+            >
+                Academic Years
+            </a>
+        @endcan
+
         @can('viewAny', \App\Models\AcademicClass::class)
             <a href="{{ route('academic-classes.index') }}">
                 Classes

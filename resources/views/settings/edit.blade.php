@@ -1,3 +1,7 @@
+@php
+    $academicYears = $academicYears ?? collect();
+@endphp
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,7 +76,7 @@
                         class="settings-section__icon"
                         aria-hidden="true"
                     >
-                        &#127979;
+                        🏫
                     </div>
 
                     <div>
@@ -231,7 +235,7 @@
                         class="settings-section__icon"
                         aria-hidden="true"
                     >
-                        &#127891;
+                        🎓
                     </div>
 
                     <div>
@@ -262,6 +266,8 @@
                             value="{{ old('current_academic_year', $settings['current_academic_year']) }}"
                             min="2000"
                             max="2100"
+                            step="1"
+                            list="registered-academic-years"
                             required
                             aria-describedby="academic-year-help{{ $errors->has('current_academic_year') ? ' academic-year-error' : '' }}"
                             @error('current_academic_year')
@@ -269,12 +275,43 @@
                             @enderror
                         >
 
+                        <datalist id="registered-academic-years">
+                            @foreach ($academicYears as $academicYear)
+                                <option
+                                    value="{{ $academicYear->year }}"
+                                    label="{{ $academicYear->name }}"
+                                ></option>
+                            @endforeach
+                        </datalist>
+
                         <p
                             class="settings-form__help"
                             id="academic-year-help"
                         >
-                            The institution's configured academic year.
+                            Enter the academic year identifier.
+                            Registered academic years may appear as suggestions.
                         </p>
+
+                        @if ($academicYears->isNotEmpty())
+
+                            <p class="settings-form__help">
+                                Registered academic years:
+                                @foreach ($academicYears as $academicYear)
+                                    <a href="{{ route('academic-years.show', $academicYear) }}">
+                                        {{ $academicYear->year }}
+                                        ({{ $academicYear->name }})
+                                    </a>{{ $loop->last ? '' : ', ' }}
+                                @endforeach
+                            </p>
+
+                        @else
+
+                            <p class="settings-form__help">
+                                No academic calendar records have been registered yet.
+                                You can continue using the numeric academic year setting.
+                            </p>
+
+                        @endif
 
                         @error('current_academic_year')
                             <p
@@ -303,7 +340,7 @@
                         class="settings-section__icon"
                         aria-hidden="true"
                     >
-                        &#127760;
+                        🌐
                     </div>
 
                     <div>
