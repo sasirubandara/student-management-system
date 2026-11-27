@@ -88,21 +88,69 @@
                 </div>
 
                 <div class="student-edit-form__field">
+
                     <label for="academic_year">Academic Year</label>
 
-                    <input
-                        type="number"
+                    @php
+                        $selectedYear = old(
+                            'academic_year',
+                            $academicClass->academic_year
+                        );
+
+                        $isHistoricalYear = ! $academicYears->contains(
+                            'year',
+                            (int) $academicClass->academic_year
+                        );
+                    @endphp
+
+                    <select
                         id="academic_year"
                         name="academic_year"
-                        value="{{ old('academic_year', $academicClass->academic_year) }}"
-                        min="2000"
-                        max="2100"
                         required
                     >
+                        <option value="">Select Academic Year</option>
+
+                        @if ($isHistoricalYear)
+                            <option
+                                value="{{ $academicClass->academic_year }}"
+                                @selected(
+                                    (string) $selectedYear ===
+                                    (string) $academicClass->academic_year
+                                )
+                            >
+                                {{ $academicClass->academic_year }}
+                                (Historical — Not Registered)
+                            </option>
+                        @endif
+
+                        @foreach ($academicYears as $academicYear)
+                            <option
+                                value="{{ $academicYear->year }}"
+                                @selected(
+                                    (string) $selectedYear ===
+                                    (string) $academicYear->year
+                                )
+                            >
+                                {{ $academicYear->year }} — {{ $academicYear->name }}
+                            </option>
+                        @endforeach
+
+                    </select>
+
+                    @if ($isHistoricalYear)
+                        <p>
+                            This class uses an academic year that is not
+                            registered in the Academic Calendar.
+                            You may retain it or select a registered year.
+                        </p>
+                    @endif
 
                     @error('academic_year')
-                        <p class="student-edit-form__error">{{ $message }}</p>
+                        <p class="student-edit-form__error">
+                            {{ $message }}
+                        </p>
                     @enderror
+
                 </div>
 
                 <div class="student-edit-form__field">

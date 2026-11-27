@@ -93,6 +93,52 @@ Creating or updating an academic-calendar record does not automatically modify t
 
 Calendar registration is not currently mandatory for setting the institution's current academic year.
 
+## Academic Class Integration
+
+Academic Class Management integrates with registered academic-calendar years while preserving the existing numeric `academic_year` column.
+
+### Academic-Year Selection
+
+- New academic classes must reference a registered academic year.
+- Academic-class creation forms display registered academic years as selectable options.
+- The configured current academic year is selected by default when it is registered.
+- When no academic years are registered, the creation form displays guidance instead of offering invalid years.
+- Administrators can change an existing class to another registered academic year.
+
+### Historical Compatibility
+
+- Existing academic classes retain their original numeric academic-year values.
+- Academic classes referencing unregistered historical years remain accessible.
+- Administrators can update unrelated class information without changing a historical unregistered year.
+- Changing an existing class to a different year requires that the destination year be registered.
+- Existing enrollments, teaching assignments, attendance records, examinations, and academic reports retain their current relationships.
+
+### Calendar Information
+
+Academic-class details display registered calendar information when a matching academic year exists, including the calendar name and date range.
+
+Classes with unregistered academic years display their existing numeric value and an explanatory registration status.
+
+### Data Model
+
+The integration matches `academic_classes.academic_year` with `academic_years.year`.
+
+No additional foreign-key column or database migration is required.
+
+This is an application-level association rather than a database-enforced foreign key.
+
+### Authorization and Audit Logging
+
+Existing academic-class authorization policies remain unchanged.
+
+Administrators can create and update academic classes, while staff members retain read-only access.
+
+Successful academic-class changes continue to use transactional audit logging. Updates that do not change any fields do not generate additional audit events.
+
+### Testing
+
+Dedicated integration tests verify registered-year selection, rejection of unregistered destination years, historical compatibility, Application Settings defaults, calendar information display, and audit integrity.
+
 ## Audit Events
 
 The module records the following events:

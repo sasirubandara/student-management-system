@@ -148,12 +148,27 @@ For detailed business rules, implementation notes, and limitations, see [Academi
 ### Academic Class Management
 
 - Create and manage academic classes.
-- Store class names, codes, grade levels, and academic years.
+- Store class names, codes, grade levels, and numeric academic years.
 - View individual academic class details.
 - Search classes by name and class code.
 - Paginate academic class records.
 - Update academic class information.
 - Archive academic classes using soft deletes.
+
+**Academic Calendar Integration — implemented on the current feature branch; final regression and merge pending**
+
+- Choose a registered academic year when creating a class or changing an existing class's year.
+- List registered years in the class creation and editing forms, showing their year identifiers and names.
+- Preselect the institution's configured current academic year in the creation form when that year has been registered; otherwise, require an explicit valid selection.
+- Display guidance and a link to academic-year registration when no calendar years exist.
+- Preserve existing classes whose numeric academic year has no matching calendar record. Administrators can edit unrelated class details without changing the historical year.
+- Reject attempts to change a class's year to an unregistered destination year.
+- Show calendar registration status, name, and start/end dates on class details pages when a registered year matches; display an explanatory historical status otherwise.
+- Keep staff read-only and retain existing academic-class authorization, soft deletes, and transactional change-field audit logging.
+
+The integration matches `academic_classes.academic_year` to `academic_years.year` at the application level. It does **not** add a foreign key, migrate existing class records, or automatically change historical academic-year values. The existing `current_academic_year` setting remains numeric; it may reference a year that is not registered, but new class creation requires a registered year.
+
+See [Academic Calendar Documentation](docs/academic-calendar.md) for the calendar and academic-class integration rules.
 
 ### Subject Management
 
@@ -386,7 +401,7 @@ Active administrators can manage institution-wide preferences through the **Sett
 | Institution email | Optional institutional contact email. |
 | Institution phone | Optional contact number stored as a string. |
 | Institution address | Optional institutional address. |
-| Current academic year | Numeric default year for newly created academic classes (2000–2100); registered calendar years are offered as suggestions. |
+| Current academic year | Numeric preferred default for academic-class creation (2000–2100); registered calendar years are suggested. A class can only be created with a registered year. |
 | Timezone | Preferred timezone for notification timestamp display. |
 | Date format | Preferred date format for notification timestamps. |
 
@@ -400,7 +415,7 @@ Active administrators can manage institution-wide preferences through the **Sett
 - Use database transactions and record locking for settings updates and their audit records.
 - Record changed settings with their previous and new values; unchanged submissions do not generate settings update audit events.
 - Preserve existing academic-class year values when the configured default changes.
-- Suggest registered academic calendar years in the settings form without requiring a matching calendar record or changing the existing numeric setting.
+- Suggest registered academic calendar years in the settings form without requiring a matching calendar record or changing the existing numeric setting. The class creation form uses the configured value only when it is registered.
 - Format dates and timestamps through the reusable `DateFormattingService` without changing Laravel's global timezone or stored UTC timestamps.
 - Provide a responsive settings form with accessible validation messages and keyboard focus indicators.
 
@@ -794,11 +809,16 @@ Run the examination management feature tests:
 php artisan test tests/Feature/ExaminationManagementTest.php
 ```
 
-Run the academic class management feature tests:
+Run the academic class management and calendar integration tests:
 
 ```bash
 php artisan test tests/Feature/AcademicClassManagementTest.php
+php artisan test tests/Feature/AcademicClassCalendarIntegrationTest.php
+php artisan test tests/Feature/AcademicClassCalendarSettingsTest.php
+php artisan test tests/Feature/AcademicClassCalendarAuditTest.php
 ```
+
+The integration tests cover registered-year selection and validation, historical unregistered values, the configured current-year default, class detail rendering, and audit events for changed and unchanged updates.
 
 Run the subject management feature tests:
 
@@ -842,7 +862,7 @@ The academic-report test suite covers authentication, archived-student authoriza
 php -d memory_limit=512M artisan test
 ```
 
-The setting applies only to that PHP invocation and is **not** an established production memory requirement. The latest full local regression run passed with the standard `php artisan test` command: **632 tests and 2,354 assertions**. Review resource consumption with representative dataset sizes before production deployment.
+The setting applies only to that PHP invocation and is **not** an established production memory requirement. The last confirmed fully passing baseline was **632 tests and 2,354 assertions**, using `php artisan test` before the academic-class/calendar integration changes. A subsequent full integration regression run reported **645 passed and 1 failed** (2,404 assertions); the remaining failure was an older Application Settings test expecting an unregistered year in the class creation form. The fixture correction has been identified, but a new full-suite passing result has not yet been supplied. Run `php artisan test` and update these figures once the regression passes. Review resource consumption with representative dataset sizes before production deployment.
 
 Run the application settings and localization tests:
 
@@ -970,11 +990,10 @@ git switch -c feature/your-feature-name
 
 ## Project Roadmap
 
-The following features are potential future development milestones. Academic Year and Term Management is implemented; see [the feature documentation](docs/academic-calendar.md).
+The following features are potential future development milestones. Academic Year and Term Management is implemented, and Academic Class and Calendar Integration is implemented on its feature branch pending final regression verification and merge. See [the feature documentation](docs/academic-calendar.md).
 
 ### Advanced Features
 
-- Integration of registered academic calendar years with academic-class selection while preserving existing numeric year values.
 - Student promotion and academic progression.
 - REST API and API authentication.
 - Expanded report branding and date-format integration.
@@ -1017,6 +1036,7 @@ student-management-system/
 │   └── views/
 │       ├── academic-years/
 │       ├── academic-terms/
+│       ├── academic-classes/
 │       ├── audit-logs/
 │       ├── reports/
 │       │   └── exports/
@@ -1059,7 +1079,7 @@ student-management-system/
 - Keep application credentials outside database-backed settings.
 - Preserve UTC timestamps and historical academic data when display preferences change.
 - Reject overlapping academic-year and term periods and use transactional calendar writes with audit logging.
-- Preserve the existing numeric academic-year fields when introducing new calendar records.
+- Preserve the existing numeric academic-year fields when introducing new calendar records. Require registered years for newly created classes and year changes while allowing unchanged historical years during class edits.
 - Validate class, subject, and date filters for academic report downloads.
 - Apply active-account and student archive authorization checks to PDF and XLSX exports.
 - Keep academic report exports non-public and avoid caching student PDF responses.
@@ -1072,7 +1092,7 @@ student-management-system/
 
 **Current status:** Student management, student CSV import and export, student document management, teacher management, academic year and term management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
 
-Academic years and terms can be created and updated by active administrators and viewed by active staff. Calendar date validation prevents overlapping years and terms, and the calendar integrates with Application Settings without replacing existing numeric year identifiers. Calendar writes and audit events use shared database transactions. See [Academic Calendar Documentation](docs/academic-calendar.md).
+Academic years and terms can be created and updated by active administrators and viewed by active staff. Calendar date validation prevents overlapping years and terms, and the calendar integrates with Application Settings without replacing existing numeric year identifiers. Calendar writes and audit events use shared database transactions. The academic-class/calendar integration under development adds registered-year selection for new and changed class-year assignments, while retaining unchanged historical values and showing registered calendar details on class profiles. This integration is pending final full-suite verification and merge. See [Academic Calendar Documentation](docs/academic-calendar.md).
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
@@ -1094,9 +1114,9 @@ The in-app notification system informs other active users about student registra
 
 Advanced search and filtering, dashboard analytics, and the enhanced Notification Center improve access to academic information and system activity. Notification filters, pagination, read actions, and accessible status indicators support day-to-day use.
 
-The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Registered academic calendar years appear as suggestions while the saved setting remains numeric. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, academic year defaults apply to new class forms, and notification timestamps use the selected display preferences.
+The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Registered academic calendar years appear as suggestions while the saved setting remains numeric. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, a configured academic year is preselected in new class forms only when registered, and notification timestamps use the selected display preferences.
 
-Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic report export security and completeness, and integration regression coverage. The latest complete local regression run passed **632 tests (2,354 assertions)** using `php artisan test`; Laravel Pint passed across **191 files**. Independent MySQL concurrency experiments exercised overlapping academic-year and term creation with an isolated test database.
+Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic report export security and completeness, and integration regression coverage. The last verified fully passing local baseline was **632 tests (2,354 assertions)** using `php artisan test`; Laravel Pint passed across **191 files** at that checkpoint. After the academic-class/calendar integration changes, the most recent full run reported **645 tests passed and 1 failed (2,404 assertions)**. The failed assertion concerned an older settings test expecting a numeric year without a corresponding registered calendar record. Final full-suite results must be refreshed before merging the integration feature. Independent MySQL concurrency experiments previously exercised overlapping academic-year and term creation with an isolated test database.
 
 ---
 
