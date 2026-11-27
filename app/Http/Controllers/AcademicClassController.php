@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AcademicClass;
+use App\Models\AcademicYear;
 use App\Models\Subject;
 use App\Services\AuditLogger;
 use Illuminate\Database\Eloquent\Builder;
@@ -50,7 +51,11 @@ class AcademicClassController extends Controller
     {
         Gate::authorize('create', AcademicClass::class);
 
-        return view('academic-classes.create');
+        $academicYears = AcademicYear::query()
+            ->orderByDesc('year')
+            ->get();
+
+        return view('academic-classes.create', compact('academicYears'));
     }
 
     /**
@@ -66,7 +71,12 @@ class AcademicClassController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:20', 'unique:academic_classes,code'],
             'grade_level' => ['required', 'integer', 'between:1,13'],
-            'academic_year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'academic_year' => [
+                'required',
+                'integer',
+                'between:2000,2100',
+                Rule::exists('academic_years', 'year'),
+            ],
             'description' => ['nullable', 'string', 'max:5000'],
             'status' => [
                 'required',
@@ -105,6 +115,10 @@ class AcademicClassController extends Controller
     {
         Gate::authorize('view', $academicClass);
 
+        $registeredAcademicYear = AcademicYear::query()
+            ->where('year', $academicClass->academic_year)
+            ->first();
+
         // Load the subjects already assigned to this class.
         $academicClass->load('subjects');
 
@@ -120,7 +134,8 @@ class AcademicClassController extends Controller
 
         return view('academic-classes.show', compact(
             'academicClass',
-            'availableSubjects'
+            'availableSubjects',
+            'registeredAcademicYear'
         ));
     }
 
@@ -131,7 +146,14 @@ class AcademicClassController extends Controller
     {
         Gate::authorize('update', $academicClass);
 
-        return view('academic-classes.edit', compact('academicClass'));
+        $academicYears = AcademicYear::query()
+            ->orderByDesc('year')
+            ->get();
+
+        return view('academic-classes.edit', compact(
+            'academicClass',
+            'academicYears'
+        ));
     }
 
     /**
@@ -156,7 +178,16 @@ class AcademicClassController extends Controller
             ],
 
             'grade_level' => ['required', 'integer', 'between:1,13'],
-            'academic_year' => ['required', 'integer', 'min:2000', 'max:2100'],
+            'academic_year' => [
+                'required',
+                'integer',
+                'between:2000,2100',
+                Rule::when(
+                    (string) $request->input('academic_year') !==
+                        (string) $academicClass->academic_year,
+                    [Rule::exists('academic_years', 'year')]
+                ),
+            ],
             'description' => ['nullable', 'string', 'max:5000'],
             'status' => [
                 'required',

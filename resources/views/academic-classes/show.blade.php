@@ -94,6 +94,50 @@
                     </tr>
 
                     <tr>
+                        <th>Calendar Registration</th>
+                        <td>
+                            @if ($registeredAcademicYear)
+                                <span class="students-status students-status--active">
+                                    Registered
+                                </span>
+                            @else
+                                <span class="students-status students-status--other">
+                                    Not Registered
+                                </span>
+                            @endif
+                        </td>
+                    </tr>
+
+                    @if ($registeredAcademicYear)
+                        <tr>
+                            <th>Calendar Name</th>
+                            <td>
+                                <a href="{{ route('academic-years.show', $registeredAcademicYear) }}">
+                                    {{ $registeredAcademicYear->name }}
+                                </a>
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <th>Academic Year Start</th>
+                            <td>{{ $registeredAcademicYear->start_date->format('d M Y') }}</td>
+                        </tr>
+
+                        <tr>
+                            <th>Academic Year End</th>
+                            <td>{{ $registeredAcademicYear->end_date->format('d M Y') }}</td>
+                        </tr>
+                    @else
+                        <tr>
+                            <th>Calendar Information</th>
+                            <td>
+                                This academic year is not registered in the Academic Calendar.
+                                The class remains accessible as a historical record.
+                            </td>
+                        </tr>
+                    @endif
+
+                    <tr>
                         <th>Status</th>
                         <td>
                             <span class="students-status

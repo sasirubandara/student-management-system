@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AcademicClass;
+use App\Models\AcademicYear;
 use App\Models\ApplicationSetting;
 use App\Models\AuditLog;
 use App\Models\User;
@@ -375,6 +376,13 @@ it('uses the configured academic year when creating academic classes', function 
 
     app(ApplicationSettingsService::class)->update([
         'current_academic_year' => 2030,
+    ]);
+
+    AcademicYear::factory()->create([
+        'year' => 2030,
+        'name' => 'Academic Year 2030',
+        'start_date' => '2030-01-01',
+        'end_date' => '2030-12-31',
     ]);
 
     $this->actingAs($admin)

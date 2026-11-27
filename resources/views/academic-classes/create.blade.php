@@ -104,24 +104,52 @@
 
                     <label for="academic_year">Academic Year</label>
 
-                    <input
-                        type="number"
-                        id="academic_year"
-                        name="academic_year"
-                        value="{{ old(
+                    @php
+                        $preferredYear = old(
                             'academic_year',
                             $applicationSettings->get(
                                 'current_academic_year',
                                 now()->year
                             )
-                        ) }}"
-                        min="2000"
-                        max="2100"
+                        );
+                    @endphp
+
+                    <select
+                        id="academic_year"
+                        name="academic_year"
                         required
+                        @disabled($academicYears->isEmpty())
                     >
+                        <option value="">Select Academic Year</option>
+
+                        @foreach ($academicYears as $academicYear)
+                            <option
+                                value="{{ $academicYear->year }}"
+                                @selected((string) $preferredYear === (string) $academicYear->year)
+                            >
+                                {{ $academicYear->year }} — {{ $academicYear->name }}
+                            </option>
+                        @endforeach
+
+                    </select>
+
+                    @if ($academicYears->isEmpty())
+                        <p>
+                            No academic years have been registered.
+                            Please register an academic year before creating a class.
+                        </p>
+
+                        @can('create', App\Models\AcademicYear::class)
+                            <a href="{{ route('academic-years.create') }}">
+                                Register Academic Year
+                            </a>
+                        @endcan
+                    @endif
 
                     @error('academic_year')
-                        <p class="student-edit-form__error">{{ $message }}</p>
+                        <p class="student-edit-form__error">
+                            {{ $message }}
+                        </p>
                     @enderror
 
                 </div>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\AcademicClass;
+use App\Models\AcademicYear;
 use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -92,6 +93,13 @@ it('allows administrators to create academic classes', function (): void {
         'role' => User::ROLE_ADMIN,
     ]);
 
+    AcademicYear::factory()->create([
+        'year' => 2026,
+        'name' => 'Academic Year 2026',
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-12-31',
+    ]);
+
     $response = $this->actingAs($admin)
         ->post(route('academic-classes.store'), [
             'name' => 'Grade Ten Gamma',
@@ -178,7 +186,16 @@ it('allows administrators to update academic classes', function (): void {
         'role' => User::ROLE_ADMIN,
     ]);
 
-    $academicClass = AcademicClass::factory()->create();
+    AcademicYear::factory()->create([
+        'year' => 2027,
+        'name' => 'Academic Year 2027',
+        'start_date' => '2027-01-01',
+        'end_date' => '2027-12-31',
+    ]);
+
+    $academicClass = AcademicClass::factory()->create([
+        'academic_year' => 2026,
+    ]);
 
     $response = $this->actingAs($admin)
         ->put(route('academic-classes.update', $academicClass), [
@@ -370,4 +387,40 @@ it('paginates academic classes with ten records per page', function (): void {
                     && $academicClasses->total() === 11;
             }
         );
+});
+
+// Academic calendar registration
+
+it('displays registered academic calendar details for an academic class', function () {
+    $academicYear = AcademicYear::factory()->create([
+        'year' => 2026,
+        'name' => 'Academic Year 2026',
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-12-31',
+    ]);
+
+    $academicClass = AcademicClass::factory()->create([
+        'academic_year' => 2026,
+    ]);
+
+    $this->get(route('academic-classes.show', $academicClass))
+        ->assertOk()
+        ->assertSee('Calendar Registration')
+        ->assertSee('Registered')
+        ->assertSee('Academic Year 2026')
+        ->assertSee('01 Jan 2026')
+        ->assertSee('31 Dec 2026')
+        ->assertSee(route('academic-years.show', $academicYear));
+});
+
+it('preserves historical classes without registered calendar years', function () {
+    $academicClass = AcademicClass::factory()->create([
+        'academic_year' => 2023,
+    ]);
+
+    $this->get(route('academic-classes.show', $academicClass))
+        ->assertOk()
+        ->assertSee('2023')
+        ->assertSee('Not Registered')
+        ->assertSee('The class remains accessible as a historical record.');
 });
