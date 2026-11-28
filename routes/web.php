@@ -20,6 +20,7 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentCsvController;
 use App\Http\Controllers\StudentDocumentController;
 use App\Http\Controllers\StudentEnrollmentController;
+use App\Http\Controllers\StudentPromotionController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\TeachingAssignmentController;
@@ -379,6 +380,28 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
 
     Route::get('/student-enrollments/{studentEnrollment}', [StudentEnrollmentController::class, 'show'])
         ->name('student-enrollments.show');
+
+    // Student Promotion and Academic Progression
+
+    Route::get(
+        '/student-promotions',
+        [StudentPromotionController::class, 'index']
+    )->name('student-promotions.index');
+
+    Route::get(
+        '/student-promotions/create',
+        [StudentPromotionController::class, 'create']
+    )->name('student-promotions.create');
+
+    Route::post(
+        '/student-promotions',
+        [StudentPromotionController::class, 'store']
+    )->name('student-promotions.store');
+
+    Route::get(
+        '/student-promotions/{studentPromotion}',
+        [StudentPromotionController::class, 'show']
+    )->name('student-promotions.show');
 
     // Teaching Assignment Management
 

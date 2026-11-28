@@ -7,12 +7,15 @@ use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Services\AuditLogger;
 use App\Services\NotificationService;
+use App\Services\StudentEnrollments\ActiveEnrollmentGuard;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class StudentEnrollmentController extends Controller
@@ -140,7 +143,8 @@ class StudentEnrollmentController extends Controller
     public function store(
         Request $request,
         AuditLogger $auditLogger,
-        NotificationService $notificationService
+        NotificationService $notificationService,
+        ActiveEnrollmentGuard $activeEnrollmentGuard
     ): RedirectResponse {
         Gate::authorize('create', StudentEnrollment::class);
 
@@ -184,8 +188,45 @@ class StudentEnrollmentController extends Controller
             $validated,
             $auditLogger,
             $notificationService,
+            $activeEnrollmentGuard,
             $actor
         ): StudentEnrollment {
+            // Serialize enrollment changes for this student.
+            $student = Student::query()
+                ->whereKey($validated['student_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if (
+                ! $student
+                || $student->status !== Student::STATUS_ACTIVE
+            ) {
+                throw ValidationException::withMessages([
+                    'student_id' => 'Select an active student.',
+                ]);
+            }
+
+            // Recheck the destination under the transaction.
+            $academicClass = AcademicClass::query()
+                ->whereKey($validated['academic_class_id'])
+                ->lockForUpdate()
+                ->first();
+
+            if (
+                ! $academicClass
+                || $academicClass->status !== AcademicClass::STATUS_ACTIVE
+            ) {
+                throw ValidationException::withMessages([
+                    'academic_class_id' => 'Select an active academic class.',
+                ]);
+            }
+
+            if ($validated['status'] === StudentEnrollment::STATUS_ACTIVE) {
+                $activeEnrollmentGuard->assertCanActivate(
+                    $student->id
+                );
+            }
+
             $enrollment = StudentEnrollment::create($validated);
 
             // Record enrollment creation in the audit log.
@@ -261,13 +302,13 @@ class StudentEnrollmentController extends Controller
     public function update(
         Request $request,
         StudentEnrollment $studentEnrollment,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        ActiveEnrollmentGuard $activeEnrollmentGuard
     ): RedirectResponse {
         Gate::authorize('update', $studentEnrollment);
 
         $validated = $request->validate([
             'enrollment_date' => ['required', 'date'],
-
             'status' => [
                 'required',
                 Rule::in([
@@ -276,28 +317,94 @@ class StudentEnrollmentController extends Controller
                     StudentEnrollment::STATUS_WITHDRAWN,
                 ]),
             ],
-
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
         DB::transaction(function () use (
             $studentEnrollment,
             $validated,
-            $auditLogger
+            $auditLogger,
+            $activeEnrollmentGuard
         ): void {
-            $studentEnrollment->fill($validated);
+            // Use the same first locking point as promotion.
+            $student = Student::withTrashed()
+                ->whereKey($studentEnrollment->student_id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $changedFields = array_keys($studentEnrollment->getDirty());
+            // Reload the enrollment after acquiring the student lock.
+            $enrollment = StudentEnrollment::query()
+                ->whereKey($studentEnrollment->id)
+                ->where('student_id', $student->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Preserve enrollment dates used by recorded promotions.
+            $hasOutgoingPromotion = $enrollment->outgoingPromotion()->exists();
+            $hasIncomingPromotion = $enrollment->incomingPromotion()->exists();
+
+            if (
+                ($hasOutgoingPromotion || $hasIncomingPromotion)
+                && Carbon::parse(
+                    $validated['enrollment_date']
+                )->toDateString() !== $enrollment->enrollment_date->toDateString()
+            ) {
+                throw ValidationException::withMessages([
+                    'enrollment_date' => 'The enrollment date cannot be changed after a promotion has been recorded.',
+                ]);
+            }
+
+            // A historical source enrollment must remain completed.
+            if (
+                $hasOutgoingPromotion
+                && $validated['status'] !== StudentEnrollment::STATUS_COMPLETED
+            ) {
+                throw ValidationException::withMessages([
+                    'status' => 'An enrollment that has been promoted must remain completed.',
+                ]);
+            }
+
+            if ($validated['status'] === StudentEnrollment::STATUS_ACTIVE) {
+                if (
+                    $student->trashed()
+                    || $student->status !== Student::STATUS_ACTIVE
+                ) {
+                    throw ValidationException::withMessages([
+                        'status' => 'An inactive or archived student cannot have an active enrollment.',
+                    ]);
+                }
+
+                $academicClass = $enrollment->academicClass;
+
+                if (
+                    ! $academicClass
+                    || $academicClass->trashed()
+                    || $academicClass->status !== AcademicClass::STATUS_ACTIVE
+                ) {
+                    throw ValidationException::withMessages([
+                        'status' => 'The academic class must be active.',
+                    ]);
+                }
+
+                $activeEnrollmentGuard->assertCanActivate(
+                    $student->id,
+                    $enrollment->id
+                );
+            }
+
+            $enrollment->fill($validated);
+
+            $changedFields = array_keys($enrollment->getDirty());
 
             if ($changedFields === []) {
                 return;
             }
 
-            $studentEnrollment->save();
+            $enrollment->save();
 
             $auditLogger->record(
                 'enrollment.updated',
-                $studentEnrollment,
+                $enrollment,
                 [
                     'changed_fields' => $changedFields,
                 ]

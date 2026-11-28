@@ -33,6 +33,13 @@
                     </a>
                 @endcan
 
+                @can('viewAny', \App\Models\StudentPromotion::class)
+                    <a href="{{ route('student-promotions.index') }}"
+                       class="students-page__button students-page__button--secondary">
+                        Promotion History
+                    </a>
+                @endcan
+
             </div>
 
         </header>

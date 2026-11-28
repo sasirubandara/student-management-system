@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic year and term management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, administrator-controlled user account management, advanced search and filtering, dashboard analytics, and centralized application settings and configuration management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic year and term management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, student promotion and academic progression, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, administrator-controlled user account management, advanced search and filtering, dashboard analytics, and centralized application settings and configuration management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -89,14 +89,42 @@ The `student_documents` database table stores document metadata and maintains re
 - Update enrollment dates, statuses, and administrative notes.
 - Support three enrollment statuses: **Active**, **Completed**, and **Withdrawn**.
 - Prevent duplicate enrollment records for the same student and academic class.
+- Reject creating or reactivating a second Active enrollment for the same student through supported enrollment-management workflows.
 - Reject enrollment creation when the selected student or academic class is inactive or archived.
+- Coordinate enrollment writes with promotions using a transaction and a student-row lock.
+- Protect promotion-linked enrollment dates and keep a promoted source enrollment Completed; permit administrative notes to be updated.
 - Preserve enrollment records as historical records rather than permanently deleting them.
 
 **Enrollment history and duplicate prevention**
 
-Each student and academic class combination can have only one enrollment record. A unique database constraint prevents another record from being created for the same combination, even after an enrollment has been marked as Completed or Withdrawn. Existing enrollment records can instead be updated.
+Each student and academic class combination can have only one enrollment record. A unique database constraint prevents another record from being created for the same combination, even after an enrollment has been marked Completed or Withdrawn. Existing records can instead be updated, subject to promotion-history safeguards.
+
+The application also validates that a student does not have multiple Active enrollments. Manual enrollment creation and updates lock the student row before checking this condition. **The one-Active-enrollment rule is enforced through participating application write paths, not a database-level unique constraint on Active status**; independent writers must follow the same locking protocol. Historical Completed and Withdrawn enrollments are retained.
 
 Enrollment records do not use soft deletes. Database relationships protect enrollment records against accidental deletion of related student or academic class records.
+
+### Student Promotion and Academic Progression
+
+- Promote a student from an Active source enrollment into a separate Active destination enrollment in a later academic year.
+- Support **Advanced** progression to the next grade and **Repeated** progression to the same grade in a later academic year.
+- Require the destination class to be active, not archived, and associated with a registered academic year.
+- Validate the source student, source enrollment and class, destination grade and year, and promotion date against the destination academic-year boundaries.
+- Reject attempts to promote an enrollment twice, reuse a destination class already enrolled by the student, or promote a student with conflicting Active enrollments.
+- Complete the source enrollment without altering its original class or enrollment date; create a new Active destination enrollment.
+- Preserve attendance records, examination results, and academic reports linked to the original enrollment instead of moving them to the destination.
+- Display a promotion history directory, a promotion creation form, and individual progression details.
+- Allow active administrators to create and view promotions; allow active staff to view promotion history but not create or modify promotions.
+- Record each successful promotion as a `student.promotion.created` audit event in the same database transaction as its enrollment changes.
+
+**Promotion history and database relationships**
+
+The `student_promotions` table links each student to one source enrollment and one destination enrollment, with the progression type (`advanced` or `repeated`), promotion date, optional notes, and the administrator who performed the action. Unique constraints prevent a source or destination enrollment from being reused in multiple promotion records. Foreign keys restrict deletion of referenced students and enrollments; if the administrator account is deleted, `promoted_by` may become null without deleting the history.
+
+**Enrollment and transaction integrity**
+
+Promotion writes lock the student row, reload and lock the source enrollment, validate business rules, mark the source Completed, create the destination Active, and record the promotion and audit event inside one transaction. Supported manual enrollment writes use the same student-level locking point to reduce conflicting Active enrollments. Ordinary enrollment editing cannot change promotion-linked enrollment dates or change an already-promoted source from Completed to another status; notes remain editable.
+
+Concurrent MySQL tests on a **separate local InnoDB database** exercised two competing promotions and a promotion competing with manual enrollment creation. In the observed runs, only one promotion succeeded, the competing operation was rejected, and the final enrollment and audit counts were consistent. These checks supplement the automated SQLite feature suite; they do not prove exhaustive concurrency safety, and other writers that bypass the locking protocol could violate the application-level one-Active-enrollment rule.
 
 ### Teacher Management
 
@@ -155,7 +183,7 @@ For detailed business rules, implementation notes, and limitations, see [Academi
 - Update academic class information.
 - Archive academic classes using soft deletes.
 
-**Academic Calendar Integration — implemented on the current feature branch; final regression and merge pending**
+**Academic Calendar Integration**
 
 - Choose a registered academic year when creating a class or changing an existing class's year.
 - List registered years in the class creation and editing forms, showing their year identifiers and names.
@@ -436,6 +464,7 @@ Audit events include:
 - Student creation, updates, archiving, and restoration.
 - Teacher creation, updates, archiving, and restoration.
 - Student enrollment creation and updates.
+- Student promotion and academic progression (`student.promotion.created`).
 - Attendance session creation and deletion.
 - Student attendance record creation, updates, and deletion.
 - Examination creation, updates, and deletion.
@@ -537,6 +566,9 @@ Administrators can:
 | Create student enrollments | Yes | No |
 | Update enrollment details and statuses | Yes | No |
 | Permanently delete enrollment records | No | No |
+| View student promotion history | Yes | Yes |
+| Create student promotions and grade repetitions | Yes | No |
+| Modify or delete existing promotion records through the application | No | No |
 | View academic years and terms | Yes | Yes |
 | Create academic years and terms | Yes | No |
 | Update academic years and terms | Yes | No |
@@ -767,6 +799,16 @@ Run the student enrollment feature tests:
 php artisan test tests/Feature/StudentEnrollmentManagementTest.php
 ```
 
+Run the Student Promotion and Academic Progression tests:
+
+```bash
+php artisan test tests/Feature/StudentPromotionDatabaseTest.php
+php artisan test tests/Feature/StudentPromotionServiceTest.php
+php artisan test tests/Feature/StudentPromotionHttpTest.php
+```
+
+These tests cover progression and repetition rules, authorization, HTTP validation, enrollment-history restrictions, transactional audit rollback, and preservation of attendance and examination results.
+
 Run the student CSV import and export feature tests:
 
 ```bash
@@ -862,7 +904,7 @@ The academic-report test suite covers authentication, archived-student authoriza
 php -d memory_limit=512M artisan test
 ```
 
-The setting applies only to that PHP invocation and is **not** an established production memory requirement. The last confirmed fully passing baseline was **632 tests and 2,354 assertions**, using `php artisan test` before the academic-class/calendar integration changes. A subsequent full integration regression run reported **645 passed and 1 failed** (2,404 assertions); the remaining failure was an older Application Settings test expecting an unregistered year in the class creation form. The fixture correction has been identified, but a new full-suite passing result has not yet been supplied. Run `php artisan test` and update these figures once the regression passes. Review resource consumption with representative dataset sizes before production deployment.
+The setting applies only to that PHP invocation and is **not** an established production memory requirement. On **November 28, 2026**, the complete local test suite passed with **684 tests and 2,542 assertions** using `php -d memory_limit=512M artisan test`. Laravel Pint also passed across **205 files**; `composer validate`, `composer check-platform-reqs`, and Blade template compilation passed. These are local verification results from the Student Promotion feature branch, not a claim that the changes have already merged into `main`. Review resource consumption with representative dataset sizes before production deployment.
 
 Run the application settings and localization tests:
 
@@ -892,7 +934,7 @@ php artisan test tests/Feature/AcademicTermServiceTest.php
 php artisan test tests/Feature/AcademicYearServiceTest.php
 ```
 
-The academic-calendar tests cover dates and overlaps, database constraints, permissions, navigation, settings compatibility, audit integrity, and transactional rollback. MySQL concurrency checks were also performed separately on an isolated test database with independent Laravel processes; those local scripts and the test environment are not part of the repository.
+The academic-calendar tests cover dates and overlaps, database constraints, permissions, navigation, settings compatibility, audit integrity, and transactional rollback. Separate local MySQL checks have also exercised selected academic-calendar and student-promotion concurrency scenarios with independent processes. These are targeted tests rather than exhaustive proof of behavior under all concurrent workloads; the temporary student-promotion test harness is not part of the application.
 
 Run the grade calculator unit tests:
 
@@ -990,11 +1032,10 @@ git switch -c feature/your-feature-name
 
 ## Project Roadmap
 
-The following features are potential future development milestones. Academic Year and Term Management is implemented, and Academic Class and Calendar Integration is implemented on its feature branch pending final regression verification and merge. See [the feature documentation](docs/academic-calendar.md).
+The following are potential future development milestones. Academic Year and Term Management, Academic Class and Calendar Integration, and Student Promotion and Academic Progression have been implemented and tested locally. Student Promotion changes are being finalized on their feature branch and should not be treated as merged into `main` until the pull request is merged. See [the academic-calendar documentation](docs/academic-calendar.md).
 
 ### Advanced Features
 
-- Student promotion and academic progression.
 - REST API and API authentication.
 - Expanded report branding and date-format integration.
 
@@ -1023,7 +1064,9 @@ student-management-system/
 │   ├── Policies/
 │   └── Services/
 │       ├── AcademicCalendar/
-│       └── Reports/
+│       ├── Reports/
+│       ├── StudentEnrollments/
+│       └── StudentPromotions/
 ├── bootstrap/
 ├── config/
 ├── database/
@@ -1038,6 +1081,7 @@ student-management-system/
 │       ├── academic-terms/
 │       ├── academic-classes/
 │       ├── audit-logs/
+│       ├── student-promotions/
 │       ├── reports/
 │       │   └── exports/
 │       ├── notifications/
@@ -1080,6 +1124,9 @@ student-management-system/
 - Preserve UTC timestamps and historical academic data when display preferences change.
 - Reject overlapping academic-year and term periods and use transactional calendar writes with audit logging.
 - Preserve the existing numeric academic-year fields when introducing new calendar records. Require registered years for newly created classes and year changes while allowing unchanged historical years during class edits.
+- Allow only active administrators to create promotions, while allowing authorized staff to view progression history.
+- Preserve attendance and examination results against the original enrollment after a promotion, and retain promotion-linked enrollment dates and statuses.
+- Use transactions and consistent student-row locking for supported Active enrollment and promotion writes; note that an additional database-level constraint would be needed to enforce one Active enrollment independently of all application writers.
 - Validate class, subject, and date filters for academic report downloads.
 - Apply active-account and student archive authorization checks to PDF and XLSX exports.
 - Keep academic report exports non-public and avoid caching student PDF responses.
@@ -1090,9 +1137,9 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, student CSV import and export, student document management, teacher management, academic year and term management, academic class management, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
+**Current status:** Student management, student CSV import and export, student document management, teacher management, academic year and term management, academic class management and calendar integration, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, student promotion and academic progression, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
 
-Academic years and terms can be created and updated by active administrators and viewed by active staff. Calendar date validation prevents overlapping years and terms, and the calendar integrates with Application Settings without replacing existing numeric year identifiers. Calendar writes and audit events use shared database transactions. The academic-class/calendar integration under development adds registered-year selection for new and changed class-year assignments, while retaining unchanged historical values and showing registered calendar details on class profiles. This integration is pending final full-suite verification and merge. See [Academic Calendar Documentation](docs/academic-calendar.md).
+Academic years and terms can be created and updated by active administrators and viewed by active staff. Calendar date validation prevents overlapping years and terms, and the calendar integrates with Application Settings without replacing existing numeric year identifiers. Calendar writes and audit events use shared database transactions. The academic-class/calendar integration offers registered-year selection for new and changed class-year assignments while retaining unchanged historical values and showing registered calendar details on class profiles. See [Academic Calendar Documentation](docs/academic-calendar.md).
 
 The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
@@ -1104,9 +1151,9 @@ The dashboard displays summary cards, enrollment and attendance status totals, u
 
 Academic reports include student enrollment, attendance, and examination history, as well as filtered attendance and examination summaries. Each report category supports PDF and Excel (XLSX) downloads. Attendance and examination exports support class, subject, and date filtering with readable labels and complete matching datasets. Administrators can view and export archived students' historical academic reports, while staff users are restricted to active student reports. Exports include authorization checks, audit events, and spreadsheet formula-injection protection.
 
-Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Historical academic records are preserved through database relationships and deletion restrictions.
+Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Promotions complete an original enrollment and create a separate Active destination enrollment, without moving historical attendance or examination results. The promotion history table connects source and destination enrollments and records the progression type, date, administrator, and related audit event. Historical academic records are protected through database relationships and deletion restrictions.
 
-The audit logging system records important authentication, user management, student, teacher, enrollment, attendance, examination, academic class, academic year and term, CSV, document, and PDF/XLSX academic report export activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
+The audit logging system records important authentication, user management, student, teacher, enrollment, promotion, attendance, examination, academic class, academic year and term, CSV, document, and PDF/XLSX academic report export activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
 
 Audit records are designed to exclude sensitive credentials and unnecessary personal information. Changes to student and teacher records are tracked through changed field names, while document audit entries avoid storing file paths, original filenames, descriptions, and file contents. The application provides a read-only audit log interface.
 
@@ -1116,7 +1163,7 @@ Advanced search and filtering, dashboard analytics, and the enhanced Notificatio
 
 The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Registered academic calendar years appear as suggestions while the saved setting remains numeric. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, a configured academic year is preselected in new class forms only when registered, and notification timestamps use the selected display preferences.
 
-Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic report export security and completeness, and integration regression coverage. The last verified fully passing local baseline was **632 tests (2,354 assertions)** using `php artisan test`; Laravel Pint passed across **191 files** at that checkpoint. After the academic-class/calendar integration changes, the most recent full run reported **645 tests passed and 1 failed (2,404 assertions)**. The failed assertion concerned an older settings test expecting a numeric year without a corresponding registered calendar record. Final full-suite results must be refreshed before merging the integration feature. Independent MySQL concurrency experiments previously exercised overlapping academic-year and term creation with an isolated test database.
+Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic-report export security and completeness, student-promotion rules, historical-record preservation, and integration regression coverage. The most recent verified full local run on **November 28, 2026** passed **684 tests (2,542 assertions)** with a temporary 512 MB PHP CLI memory allowance; Laravel Pint passed **205 files**. Composer validation, platform checks, and Blade template compilation also passed. Separate local MySQL concurrency experiments exercised competing promotions and a promotion competing with a manual enrollment writer on an isolated InnoDB database; both yielded consistent enrollment, promotion, and audit counts in the observed runs. These results describe local verification on the Student Promotion feature branch; complete browser smoke testing and the final merge remain separate steps.
 
 ---
 
