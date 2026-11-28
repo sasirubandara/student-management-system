@@ -26,6 +26,20 @@
 
             <div class="student-profile__actions">
 
+                @can('create', \App\Models\StudentPromotion::class)
+                    @if (
+                        $studentEnrollment->status ===
+                            \App\Models\StudentEnrollment::STATUS_ACTIVE
+                    )
+                        <a href="{{ route('student-promotions.create', [
+                            'source_enrollment_id' => $studentEnrollment->id,
+                        ]) }}"
+                           class="students-page__button">
+                            Promote Student
+                        </a>
+                    @endif
+                @endcan
+
                 @can('update', $studentEnrollment)
                     <a href="{{ route('student-enrollments.edit', $studentEnrollment) }}"
                        class="students-page__button">

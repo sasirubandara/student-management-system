@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class StudentEnrollment extends Model
 {
@@ -70,5 +71,27 @@ class StudentEnrollment extends Model
     public function examinationResults(): HasMany
     {
         return $this->hasMany(ExaminationResult::class);
+    }
+
+    /**
+     * Promotion originating from this enrollment.
+     */
+    public function outgoingPromotion(): HasOne
+    {
+        return $this->hasOne(
+            StudentPromotion::class,
+            'source_enrollment_id'
+        );
+    }
+
+    /**
+     * Promotion that created this enrollment.
+     */
+    public function incomingPromotion(): HasOne
+    {
+        return $this->hasOne(
+            StudentPromotion::class,
+            'destination_enrollment_id'
+        );
     }
 }

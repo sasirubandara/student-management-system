@@ -620,3 +620,118 @@ it('allows filtering enrollments belonging to archived classes', function (): vo
         })
         ->assertSee('Archived');
 });
+
+// Active enrollment guard tests
+
+it('rejects creating a second active enrollment for the same student', function (): void {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $student = Student::factory()->create();
+
+    StudentEnrollment::factory()->create([
+        'student_id' => $student->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+    ]);
+
+    $otherClass = AcademicClass::factory()->create();
+
+    $this->actingAs($admin)
+        ->post(route('student-enrollments.store'), [
+            'student_id' => $student->id,
+            'academic_class_id' => $otherClass->id,
+            'enrollment_date' => '2027-01-15',
+            'status' => StudentEnrollment::STATUS_ACTIVE,
+        ])
+        ->assertSessionHasErrors('status');
+
+    $this->assertDatabaseCount('student_enrollments', 1);
+});
+
+it('allows historical enrollment creation when another enrollment is active', function (): void {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $student = Student::factory()->create();
+
+    StudentEnrollment::factory()->create([
+        'student_id' => $student->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+    ]);
+
+    $historicalClass = AcademicClass::factory()->create();
+
+    $this->actingAs($admin)
+        ->post(route('student-enrollments.store'), [
+            'student_id' => $student->id,
+            'academic_class_id' => $historicalClass->id,
+            'enrollment_date' => '2026-01-15',
+            'status' => StudentEnrollment::STATUS_COMPLETED,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('student_enrollments', [
+        'student_id' => $student->id,
+        'academic_class_id' => $historicalClass->id,
+        'status' => StudentEnrollment::STATUS_COMPLETED,
+    ]);
+});
+
+it('rejects reactivating an enrollment when another is active', function (): void {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+    ]);
+
+    $student = Student::factory()->create();
+
+    StudentEnrollment::factory()->create([
+        'student_id' => $student->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+    ]);
+
+    $historical = StudentEnrollment::factory()->create([
+        'student_id' => $student->id,
+        'status' => StudentEnrollment::STATUS_COMPLETED,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('student-enrollments.update', $historical), [
+            'enrollment_date' => $historical->enrollment_date->toDateString(),
+            'status' => StudentEnrollment::STATUS_ACTIVE,
+            'notes' => $historical->notes,
+        ])
+        ->assertSessionHasErrors('status');
+
+    expect($historical->fresh()->status)
+        ->toBe(StudentEnrollment::STATUS_COMPLETED);
+});
+
+it('allows updating an active enrollment when no conflicting active enrollment exists', function (): void {
+    $admin = User::factory()->create([
+        'role' => User::ROLE_ADMIN,
+        'is_active' => true,
+    ]);
+
+    $enrollment = StudentEnrollment::factory()->create([
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+    ]);
+
+    $this->actingAs($admin)
+        ->put(route('student-enrollments.update', $enrollment), [
+            'enrollment_date' => $enrollment->enrollment_date->toDateString(),
+            'status' => StudentEnrollment::STATUS_ACTIVE,
+            'notes' => 'Updated administrative notes.',
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(
+            route('student-enrollments.show', $enrollment)
+        );
+
+    $this->assertDatabaseHas('student_enrollments', [
+        'id' => $enrollment->id,
+        'status' => StudentEnrollment::STATUS_ACTIVE,
+        'notes' => 'Updated administrative notes.',
+    ]);
+});

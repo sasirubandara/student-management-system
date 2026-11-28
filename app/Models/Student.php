@@ -44,4 +44,12 @@ class Student extends Model
     {
         return $this->hasMany(StudentDocument::class);
     }
+
+    /**
+     * Get the student's promotion history.
+     */
+    public function promotions(): HasMany
+    {
+        return $this->hasMany(StudentPromotion::class);
+    }
 }
