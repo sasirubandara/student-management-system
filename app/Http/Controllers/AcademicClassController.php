@@ -5,13 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\AcademicClass;
 use App\Models\AcademicYear;
 use App\Models\Subject;
+use App\Models\TimetableEntry;
+use App\Services\AcademicCalendar\AcademicCalendarTransaction;
 use App\Services\AuditLogger;
+use App\Services\Timetables\TimetableTransaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class AcademicClassController extends Controller
@@ -63,7 +66,8 @@ class AcademicClassController extends Controller
      */
     public function store(
         Request $request,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        AcademicCalendarTransaction $calendarTransaction
     ): RedirectResponse {
         Gate::authorize('create', AcademicClass::class);
 
@@ -87,11 +91,24 @@ class AcademicClassController extends Controller
             ],
         ]);
 
-        $academicClass = DB::transaction(function () use (
+        $academicClass = $calendarTransaction->run(function () use (
             $validated,
             $auditLogger
         ): AcademicClass {
-            $academicClass = AcademicClass::create($validated);
+            // Recheck after acquiring the calendar lock.
+            // This prevents a concurrent academic-year renumbering
+            // from invalidating the earlier request validation.
+            $yearExists = AcademicYear::query()
+                ->where('year', $validated['academic_year'])
+                ->exists();
+
+            if (! $yearExists) {
+                throw ValidationException::withMessages([
+                    'academic_year' => 'The selected academic year is no longer registered.',
+                ]);
+            }
+
+            $academicClass = AcademicClass::query()->create($validated);
 
             $auditLogger->record(
                 'academic_class.created',
@@ -162,7 +179,9 @@ class AcademicClassController extends Controller
     public function update(
         Request $request,
         AcademicClass $academicClass,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction,
+        AcademicCalendarTransaction $calendarTransaction
     ): RedirectResponse {
         Gate::authorize('update', $academicClass);
 
@@ -198,28 +217,87 @@ class AcademicClassController extends Controller
             ],
         ]);
 
-        DB::transaction(function () use (
+        $calendarTransaction->run(function () use (
             $academicClass,
             $validated,
-            $auditLogger
+            $auditLogger,
+            $timetableTransaction
         ): void {
-            $academicClass->fill($validated);
-
-            $changedFields = array_keys($academicClass->getDirty());
-
-            if ($changedFields === []) {
-                return;
-            }
-
-            $academicClass->save();
-
-            $auditLogger->record(
-                'academic_class.updated',
+            $timetableTransaction->run(function () use (
                 $academicClass,
-                [
-                    'changed_fields' => $changedFields,
-                ]
-            );
+                $validated,
+                $auditLogger
+            ): void {
+                $lockedClass = AcademicClass::query()
+                    ->whereKey($academicClass->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $lockedClass->fill($validated);
+
+                $changedFields = array_keys($lockedClass->getDirty());
+
+                if ($changedFields === []) {
+                    return;
+                }
+
+                // Recheck the academic year inside the locks.
+                // Historical classes may retain an unregistered
+                // year if that value has not changed.
+                if (in_array('academic_year', $changedFields, true)) {
+                    $yearExists = AcademicYear::query()
+                        ->where('year', $lockedClass->academic_year)
+                        ->exists();
+
+                    if (! $yearExists) {
+                        throw ValidationException::withMessages([
+                            'academic_year' => 'The selected academic year is no longer registered.',
+                        ]);
+                    }
+                }
+
+                $protectedFields = [
+                    'academic_year',
+                    'status',
+                ];
+
+                $hasProtectedChange = array_intersect(
+                    $changedFields,
+                    $protectedFields
+                ) !== [];
+
+                if ($hasProtectedChange) {
+                    $hasScheduledLessons = TimetableEntry::query()
+                        ->whereHas(
+                            'teachingAssignment',
+                            function (Builder $query) use ($lockedClass): void {
+                                $query->where(
+                                    'academic_class_id',
+                                    $lockedClass->id
+                                );
+                            }
+                        )
+                        ->exists();
+
+                    if ($hasScheduledLessons) {
+                        throw ValidationException::withMessages([
+                            'academic_year' => 'This academic class has scheduled lessons. '
+                                .'Remove its timetable entries before changing '
+                                .'its academic year or status.',
+                        ]);
+                    }
+                }
+
+                $lockedClass->save();
+
+                $auditLogger->record(
+                    'academic_class.updated',
+                    $lockedClass,
+                    [
+                        'changed_fields' => $changedFields,
+                    ]
+                );
+            });
         });
 
         return to_route('academic-classes.show', $academicClass)
@@ -231,28 +309,53 @@ class AcademicClassController extends Controller
      */
     public function destroy(
         AcademicClass $academicClass,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('delete', $academicClass);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $academicClass,
             $auditLogger
         ): void {
+            $lockedClass = AcademicClass::query()
+                ->whereKey($academicClass->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $hasScheduledLessons = TimetableEntry::query()
+                ->whereHas(
+                    'teachingAssignment',
+                    function (Builder $query) use ($lockedClass): void {
+                        $query->where(
+                            'academic_class_id',
+                            $lockedClass->id
+                        );
+                    }
+                )
+                ->exists();
+
+            if ($hasScheduledLessons) {
+                throw ValidationException::withMessages([
+                    'academic_class_id' => 'This academic class has scheduled lessons. '
+                        .'Remove its timetable entries before archiving it.',
+                ]);
+            }
+
             $auditProperties = [
                 'record' => [
-                    'name' => $academicClass->name,
-                    'code' => $academicClass->code,
-                    'academic_year' => $academicClass->academic_year,
+                    'name' => $lockedClass->name,
+                    'code' => $lockedClass->code,
+                    'academic_year' => $lockedClass->academic_year,
                 ],
                 'changed_fields' => ['deleted_at'],
             ];
 
-            $academicClass->delete();
+            $lockedClass->delete();
 
             $auditLogger->record(
                 'academic_class.archived',
-                $academicClass,
+                $lockedClass,
                 $auditProperties
             );
         });

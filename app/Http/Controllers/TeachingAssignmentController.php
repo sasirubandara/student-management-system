@@ -6,7 +6,9 @@ use App\Models\AcademicClass;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\TeachingAssignment;
+use App\Models\TimetableEntry;
 use App\Services\AuditLogger;
+use App\Services\Timetables\TimetableTransaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TeachingAssignmentController extends Controller
@@ -209,12 +212,13 @@ class TeachingAssignmentController extends Controller
     }
 
     /**
-     * Update an existing teaching assignment.
+     * Update a teaching assignment without invalidating timetables.
      */
     public function update(
         Request $request,
         TeachingAssignment $teachingAssignment,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('update', $teachingAssignment);
 
@@ -225,13 +229,17 @@ class TeachingAssignmentController extends Controller
                 Rule::exists('teachers', 'id')
                     ->where('status', Teacher::STATUS_ACTIVE)
                     ->whereNull('deleted_at'),
-
                 Rule::unique('teaching_assignments', 'teacher_id')
-                    ->where('academic_class_id', $request->input('academic_class_id'))
-                    ->where('subject_id', $request->input('subject_id'))
+                    ->where(
+                        'academic_class_id',
+                        $request->input('academic_class_id')
+                    )
+                    ->where(
+                        'subject_id',
+                        $request->input('subject_id')
+                    )
                     ->ignore($teachingAssignment->id),
             ],
-
             'academic_class_id' => [
                 'required',
                 'integer',
@@ -239,47 +247,81 @@ class TeachingAssignmentController extends Controller
                     ->where('status', AcademicClass::STATUS_ACTIVE)
                     ->whereNull('deleted_at'),
             ],
-
             'subject_id' => [
                 'required',
                 'integer',
-
                 Rule::exists('subjects', 'id')
                     ->where('status', Subject::STATUS_ACTIVE)
                     ->whereNull('deleted_at'),
-
                 Rule::exists('academic_class_subject', 'subject_id')
-                    ->where('academic_class_id', $request->input('academic_class_id')),
+                    ->where(
+                        'academic_class_id',
+                        $request->input('academic_class_id')
+                    ),
             ],
         ]);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $teachingAssignment,
             $validated,
             $auditLogger
         ): void {
-            $teachingAssignment->fill($validated);
+            // Reload after acquiring the shared timetable lock.
+            $lockedAssignment = TeachingAssignment::query()
+                ->whereKey($teachingAssignment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $changedFields = array_keys($teachingAssignment->getDirty());
+            $lockedAssignment->fill($validated);
+
+            $changedFields = array_keys(
+                $lockedAssignment->getDirty()
+            );
 
             if ($changedFields === []) {
                 return;
+            }
+
+            // A scheduled assignment must retain its teacher,
+            // academic class, and subject.
+            $hasTimetableEntries = TimetableEntry::query()
+                ->where(
+                    'teaching_assignment_id',
+                    $lockedAssignment->id
+                )
+                ->exists();
+
+            $relationshipChanged = array_intersect(
+                $changedFields,
+                [
+                    'teacher_id',
+                    'academic_class_id',
+                    'subject_id',
+                ]
+            ) !== [];
+
+            if ($hasTimetableEntries && $relationshipChanged) {
+                throw ValidationException::withMessages([
+                    'teacher_id' => 'This teaching assignment has scheduled lessons. '
+                        .'Remove its timetable entries before changing '
+                        .'the teacher, academic class, or subject.',
+                ]);
             }
 
             $changes = [];
 
             foreach ($changedFields as $field) {
                 $changes[$field] = [
-                    'old' => $teachingAssignment->getOriginal($field),
-                    'new' => $teachingAssignment->{$field},
+                    'old' => $lockedAssignment->getOriginal($field),
+                    'new' => $lockedAssignment->{$field},
                 ];
             }
 
-            $teachingAssignment->save();
+            $lockedAssignment->save();
 
             $auditLogger->record(
                 'teaching_assignment.updated',
-                $teachingAssignment,
+                $lockedAssignment,
                 [
                     'changed_fields' => $changedFields,
                     'changes' => $changes,
@@ -287,27 +329,47 @@ class TeachingAssignmentController extends Controller
             );
         });
 
-        return to_route('teaching-assignments.show', $teachingAssignment)
-            ->with('success', 'Teaching assignment updated successfully.');
+        return to_route(
+            'teaching-assignments.show',
+            $teachingAssignment
+        )->with(
+            'success',
+            'Teaching assignment updated successfully.'
+        );
     }
 
     /**
-     * Remove a teaching assignment.
+     * Remove an unused teaching assignment safely.
      */
     public function destroy(
         TeachingAssignment $teachingAssignment,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('delete', $teachingAssignment);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $teachingAssignment,
             $auditLogger
         ): void {
             $lockedAssignment = TeachingAssignment::query()
-                ->whereKey($teachingAssignment->getKey())
+                ->whereKey($teachingAssignment->id)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            $hasTimetableEntries = TimetableEntry::query()
+                ->where(
+                    'teaching_assignment_id',
+                    $lockedAssignment->id
+                )
+                ->exists();
+
+            if ($hasTimetableEntries) {
+                throw ValidationException::withMessages([
+                    'teaching_assignment_id' => 'This teaching assignment has scheduled lessons. '
+                        .'Remove its timetable entries before deleting it.',
+                ]);
+            }
 
             $auditProperties = [
                 'teacher_id' => $lockedAssignment->teacher_id,
@@ -326,6 +388,9 @@ class TeachingAssignmentController extends Controller
         });
 
         return to_route('teaching-assignments.index')
-            ->with('success', 'Teaching assignment removed successfully.');
+            ->with(
+                'success',
+                'Teaching assignment removed successfully.'
+            );
     }
 }
