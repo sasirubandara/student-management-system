@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subject;
+use App\Models\TimetableEntry;
 use App\Services\AuditLogger;
+use App\Services\Timetables\TimetableTransaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class SubjectController extends Controller
@@ -118,7 +121,8 @@ class SubjectController extends Controller
     public function update(
         Request $request,
         Subject $subject,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('update', $subject);
 
@@ -143,24 +147,54 @@ class SubjectController extends Controller
             ],
         ]);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $subject,
             $validated,
             $auditLogger
         ): void {
-            $subject->fill($validated);
+            $lockedSubject = Subject::query()
+                ->whereKey($subject->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $changedFields = array_keys($subject->getDirty());
+            $lockedSubject->fill($validated);
+
+            $changedFields = array_keys($lockedSubject->getDirty());
 
             if ($changedFields === []) {
                 return;
             }
 
-            $subject->save();
+            if (
+                in_array('status', $changedFields, true)
+                && $lockedSubject->status !== Subject::STATUS_ACTIVE
+            ) {
+                $hasScheduledLessons = TimetableEntry::query()
+                    ->whereHas(
+                        'teachingAssignment',
+                        function (Builder $query) use ($lockedSubject): void {
+                            $query->where(
+                                'subject_id',
+                                $lockedSubject->id
+                            );
+                        }
+                    )
+                    ->exists();
+
+                if ($hasScheduledLessons) {
+                    throw ValidationException::withMessages([
+                        'status' => 'This subject has scheduled lessons. '
+                            .'Remove the timetable entries before '
+                            .'deactivating the subject.',
+                    ]);
+                }
+            }
+
+            $lockedSubject->save();
 
             $auditLogger->record(
                 'subject.updated',
-                $subject,
+                $lockedSubject,
                 [
                     'changed_fields' => $changedFields,
                 ]
@@ -176,27 +210,52 @@ class SubjectController extends Controller
      */
     public function destroy(
         Subject $subject,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('delete', $subject);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $subject,
             $auditLogger
         ): void {
+            $lockedSubject = Subject::query()
+                ->whereKey($subject->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $hasScheduledLessons = TimetableEntry::query()
+                ->whereHas(
+                    'teachingAssignment',
+                    function (Builder $query) use ($lockedSubject): void {
+                        $query->where(
+                            'subject_id',
+                            $lockedSubject->id
+                        );
+                    }
+                )
+                ->exists();
+
+            if ($hasScheduledLessons) {
+                throw ValidationException::withMessages([
+                    'subject_id' => 'This subject has scheduled lessons. '
+                        .'Remove the timetable entries before archiving it.',
+                ]);
+            }
+
             $auditProperties = [
                 'record' => [
-                    'name' => $subject->name,
-                    'code' => $subject->code,
+                    'name' => $lockedSubject->name,
+                    'code' => $lockedSubject->code,
                 ],
                 'changed_fields' => ['deleted_at'],
             ];
 
-            $subject->delete();
+            $lockedSubject->delete();
 
             $auditLogger->record(
                 'subject.archived',
-                $subject,
+                $lockedSubject,
                 $auditProperties
             );
         });

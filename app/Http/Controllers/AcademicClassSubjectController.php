@@ -4,12 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\AcademicClass;
 use App\Models\Subject;
+use App\Models\TeachingAssignment;
+use App\Models\TimetableEntry;
 use App\Services\AuditLogger;
+use App\Services\Timetables\TimetableTransaction;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AcademicClassSubjectController extends Controller
 {
@@ -70,26 +74,52 @@ class AcademicClassSubjectController extends Controller
     public function destroy(
         AcademicClass $academicClass,
         Subject $subject,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('update', $academicClass);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $academicClass,
             $subject,
             $auditLogger
         ): void {
-            $exists = $academicClass->subjects()
+            $lockedClass = AcademicClass::query()
+                ->whereKey($academicClass->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $exists = $lockedClass->subjects()
                 ->whereKey($subject->id)
                 ->exists();
 
             abort_unless($exists, 404);
 
-            $academicClass->subjects()->detach($subject->id);
+            $scheduledAssignmentIds = TeachingAssignment::query()
+                ->where('academic_class_id', $lockedClass->id)
+                ->where('subject_id', $subject->id)
+                ->select('id');
+
+            $hasScheduledLessons = TimetableEntry::query()
+                ->whereIn(
+                    'teaching_assignment_id',
+                    $scheduledAssignmentIds
+                )
+                ->exists();
+
+            if ($hasScheduledLessons) {
+                throw ValidationException::withMessages([
+                    'subject_id' => 'This subject has scheduled lessons for the class. '
+                        .'Remove the relevant timetable entries before '
+                        .'removing the subject assignment.',
+                ]);
+            }
+
+            $lockedClass->subjects()->detach($subject->id);
 
             $auditLogger->record(
                 'academic_class.subject_removed',
-                $academicClass,
+                $lockedClass,
                 [
                     'subject_id' => $subject->getKey(),
                 ]

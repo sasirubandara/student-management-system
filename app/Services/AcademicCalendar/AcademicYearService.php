@@ -2,7 +2,10 @@
 
 namespace App\Services\AcademicCalendar;
 
+use App\Models\AcademicClass;
 use App\Models\AcademicYear;
+use App\Models\TimetableEntry;
+use App\Services\Timetables\TimetableTransaction;
 use Closure;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -42,7 +45,8 @@ class AcademicYearService
     }
 
     /**
-     * Update an academic year without invalidating existing terms.
+     * Update an academic year without invalidating
+     * existing classes, terms, or timetable entries.
      *
      * @param  array<string, mixed>  $attributes
      */
@@ -57,43 +61,79 @@ class AcademicYearService
                 $attributes,
                 $onWritten
             ): AcademicYear {
-                $academicYear = AcademicYear::query()
-                    ->lockForUpdate()
-                    ->findOrFail($academicYear->id);
+                // Always acquire the calendar lock before the timetable lock.
+                return app(TimetableTransaction::class)
+                    ->run(function () use (
+                        $academicYear,
+                        $attributes,
+                        $onWritten
+                    ): AcademicYear {
+                        $year = AcademicYear::query()
+                            ->whereKey($academicYear->id)
+                            ->lockForUpdate()
+                            ->firstOrFail();
 
-                $validated = $this->validate(
-                    $attributes,
-                    $academicYear
-                );
-
-                $this->ensureNoOverlap(
-                    $validated,
-                    $academicYear
-                );
-
-                $this->ensureTermsRemainWithinYear(
-                    $academicYear,
-                    $validated
-                );
-
-                $academicYear->fill($validated);
-
-                $changedFields = array_keys(
-                    $academicYear->getDirty()
-                );
-
-                if ($changedFields !== []) {
-                    $academicYear->save();
-
-                    if ($onWritten !== null) {
-                        $onWritten(
-                            $academicYear,
-                            $changedFields
+                        $validated = $this->validate(
+                            $attributes,
+                            $year
                         );
-                    }
-                }
 
-                return $academicYear->refresh();
+                        $this->ensureNoOverlap(
+                            $validated,
+                            $year
+                        );
+
+                        $this->ensureTermsRemainWithinYear(
+                            $year,
+                            $validated
+                        );
+
+                        if ((int) $validated['year'] !== $year->year) {
+                            $hasReferencedClasses = AcademicClass::withTrashed()
+                                ->where('academic_year', $year->year)
+                                ->exists();
+
+                            $hasScheduledLessons = TimetableEntry::query()
+                                ->whereHas(
+                                    'academicTerm',
+                                    fn ($query) => $query->where(
+                                        'academic_year_id',
+                                        $year->id
+                                    )
+                                )
+                                ->exists();
+
+                            if (
+                                $hasReferencedClasses
+                                || $hasScheduledLessons
+                            ) {
+                                throw ValidationException::withMessages([
+                                    'year' => 'This academic year is referenced by '
+                                        .'academic classes or scheduled lessons. '
+                                        .'Its numeric identifier cannot be changed.',
+                                ]);
+                            }
+                        }
+
+                        $year->fill($validated);
+
+                        $changedFields = array_keys(
+                            $year->getDirty()
+                        );
+
+                        if ($changedFields !== []) {
+                            $year->save();
+
+                            if ($onWritten !== null) {
+                                $onWritten(
+                                    $year,
+                                    $changedFields
+                                );
+                            }
+                        }
+
+                        return $year->refresh();
+                    });
             });
     }
 

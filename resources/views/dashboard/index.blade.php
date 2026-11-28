@@ -396,6 +396,22 @@
                 </a>
             </article>
 
+            @can('viewAny', \App\Models\TimetableEntry::class)
+                <article class="dashboard-card">
+                    <div class="dashboard-card__icon">🗓️</div>
+
+                    <h2>Timetables</h2>
+
+                    <p class="dashboard-card__description">
+                        Academic class schedules
+                    </p>
+
+                    <a href="{{ route('timetables.index') }}">
+                        View Academic Timetables
+                    </a>
+                </article>
+            @endcan
+
             <article class="dashboard-card">
                 <div class="dashboard-card__icon">📋</div>
 

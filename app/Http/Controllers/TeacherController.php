@@ -3,13 +3,16 @@
 namespace App\Http\Controllers;
 
 use App\Models\Teacher;
+use App\Models\TimetableEntry;
 use App\Services\AuditLogger;
+use App\Services\Timetables\TimetableTransaction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TeacherController extends Controller
@@ -152,7 +155,8 @@ class TeacherController extends Controller
     public function update(
         Request $request,
         Teacher $teacher,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('update', $teacher);
 
@@ -180,24 +184,51 @@ class TeacherController extends Controller
             ],
         ]);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $teacher,
             $validated,
             $auditLogger
         ): void {
-            $teacher->fill($validated);
+            $lockedTeacher = Teacher::query()
+                ->whereKey($teacher->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-            $changedFields = array_keys($teacher->getDirty());
+            $lockedTeacher->fill($validated);
+
+            $changedFields = array_keys($lockedTeacher->getDirty());
 
             if ($changedFields === []) {
                 return;
             }
 
-            $teacher->save();
+            if (
+                in_array('status', $changedFields, true)
+                && $lockedTeacher->status !== Teacher::STATUS_ACTIVE
+            ) {
+                $hasScheduledLessons = TimetableEntry::query()
+                    ->whereHas(
+                        'teachingAssignment',
+                        function (Builder $query) use ($lockedTeacher): void {
+                            $query->where('teacher_id', $lockedTeacher->id);
+                        }
+                    )
+                    ->exists();
+
+                if ($hasScheduledLessons) {
+                    throw ValidationException::withMessages([
+                        'status' => 'This teacher has scheduled lessons. '
+                            .'Remove the timetable entries before '
+                            .'deactivating the teacher.',
+                    ]);
+                }
+            }
+
+            $lockedTeacher->save();
 
             $auditLogger->record(
                 'teacher.updated',
-                $teacher,
+                $lockedTeacher,
                 [
                     'changed_fields' => $changedFields,
                 ]
@@ -213,19 +244,41 @@ class TeacherController extends Controller
      */
     public function destroy(
         Teacher $teacher,
-        AuditLogger $auditLogger
+        AuditLogger $auditLogger,
+        TimetableTransaction $timetableTransaction
     ): RedirectResponse {
         Gate::authorize('delete', $teacher);
 
-        DB::transaction(function () use (
+        $timetableTransaction->run(function () use (
             $teacher,
             $auditLogger
         ): void {
-            $teacher->delete();
+            $lockedTeacher = Teacher::query()
+                ->whereKey($teacher->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $hasScheduledLessons = TimetableEntry::query()
+                ->whereHas(
+                    'teachingAssignment',
+                    function (Builder $query) use ($lockedTeacher): void {
+                        $query->where('teacher_id', $lockedTeacher->id);
+                    }
+                )
+                ->exists();
+
+            if ($hasScheduledLessons) {
+                throw ValidationException::withMessages([
+                    'teacher_id' => 'This teacher has scheduled lessons. '
+                        .'Remove the timetable entries before archiving.',
+                ]);
+            }
+
+            $lockedTeacher->delete();
 
             $auditLogger->record(
                 'teacher.archived',
-                $teacher,
+                $lockedTeacher,
                 [
                     'changed_fields' => ['deleted_at'],
                 ]

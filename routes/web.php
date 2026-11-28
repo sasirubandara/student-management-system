@@ -24,6 +24,7 @@ use App\Http\Controllers\StudentPromotionController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\TeachingAssignmentController;
+use App\Http\Controllers\TimetableEntryController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -430,6 +431,61 @@ Route::middleware(['auth', 'active', 'auth.session'])->group(function () {
     // Teaching assignment details
     Route::get('/teaching-assignments/{teachingAssignment}', [TeachingAssignmentController::class, 'show'])
         ->name('teaching-assignments.show');
+
+    // Academic Timetable and Scheduling Management
+
+    Route::get(
+        '/timetables',
+        [TimetableEntryController::class, 'index']
+    )->name('timetables.index');
+
+    // Timetable creation form
+    Route::get(
+        '/timetables/create',
+        [TimetableEntryController::class, 'create']
+    )->name('timetables.create');
+
+    // Store a new timetable entry
+    Route::post(
+        '/timetables',
+        [TimetableEntryController::class, 'store']
+    )->name('timetables.store');
+
+    // Weekly timetable for an academic class
+    Route::get(
+        '/timetables/classes/{academicClass}',
+        [TimetableEntryController::class, 'classTimetable']
+    )->name('timetables.classes.show');
+
+    // Weekly timetable for a teacher
+    Route::get(
+        '/timetables/teachers/{teacher}',
+        [TimetableEntryController::class, 'teacherTimetable']
+    )->name('timetables.teachers.show');
+
+    // Timetable entry details
+    Route::get(
+        '/timetables/{timetableEntry}',
+        [TimetableEntryController::class, 'show']
+    )->name('timetables.show');
+
+    // Timetable editing form
+    Route::get(
+        '/timetables/{timetableEntry}/edit',
+        [TimetableEntryController::class, 'edit']
+    )->name('timetables.edit');
+
+    // Update timetable entry
+    Route::put(
+        '/timetables/{timetableEntry}',
+        [TimetableEntryController::class, 'update']
+    )->name('timetables.update');
+
+    // Delete timetable entry
+    Route::delete(
+        '/timetables/{timetableEntry}',
+        [TimetableEntryController::class, 'destroy']
+    )->name('timetables.destroy');
 
     // Attendance Session Management
 

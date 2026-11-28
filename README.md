@@ -2,7 +2,7 @@
 
 [![Laravel CI](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sasirubandara/student-management-system/actions/workflows/ci.yml)
 
-A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic year and term management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, student promotion and academic progression, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, administrator-controlled user account management, advanced search and filtering, dashboard analytics, and centralized application settings and configuration management.
+A web-based Student Management System built with PHP and Laravel. The application provides student and teacher management, academic year and term management, academic class and subject management, class-subject assignments, teacher-class-subject assignments, student enrollment management, student promotion and academic progression, academic timetable and scheduling management, subject-based attendance management, examination and grade management, academic reports, student CSV import and export, student document management, in-app notifications, audit logs and activity history, authentication, role-based authorization, administrator-controlled user account management, advanced search and filtering, dashboard analytics, and centralized application settings and configuration management.
 
 This project is developed incrementally as a learning and software development portfolio project, with an emphasis on maintainable code, application security, automated testing, and professional Git workflows.
 
@@ -249,6 +249,38 @@ Different teachers can be assigned to the same class and subject combination. A 
 
 Teaching assignments do not use soft deletes. Administrators can remove an assignment, while foreign-key restrictions protect related teacher, academic class, and subject records from accidental deletion.
 
+### Academic Timetable and Scheduling Management
+
+The timetable module organizes weekly lessons by **academic term**, teaching assignment, weekday, and start/end time. A teaching assignment associates a teacher, academic class, and subject; each timetable entry references that assignment and a registered term.
+
+**Scheduling and weekly views**
+
+- List timetable entries with optional academic-term, class, and teacher filters.
+- Allow administrators to create, view, edit, and delete lessons through authenticated timetable pages.
+- Allow active administrators and staff to view timetable entries and weekly schedules for an academic class or teacher.
+- Show lessons grouped by weekday, with lesson times and the related teacher, class, and subject details.
+- Require an explicit academic term for weekly displays. Class timetable selectors show only terms associated with the class's numeric academic year; a manually supplied term from another year is rejected.
+- Allow teacher timetables to be filtered by any registered term, including terms from different academic years.
+
+**Validation and conflict protection**
+
+- Validate weekday and time ranges, registered academic terms, and eligible teaching assignments.
+- Require the teaching assignment's class year to match the academic year associated with the selected term.
+- Reject schedule changes involving inactive or archived teachers, classes, or subjects, or subjects not assigned to the relevant class.
+- Reject overlapping lessons for the **same academic class** or **same teacher** within one term and weekday, including partially overlapping periods. Adjacent, non-overlapping periods remain eligible.
+- Prevent scheduled records from being invalidated through participating teacher, class, subject, class-subject, and teaching-assignment management workflows. In particular, changes that would deactivate, archive, detach, or reassign referenced entities are rejected while timetable entries depend on them.
+- Prevent renumbering an academic year referenced by academic classes or scheduled lessons, while permitting eligible changes to other year metadata.
+
+**Transactions, storage, and audit history**
+
+The `timetable_entries` table references academic terms and teaching assignments and records the weekday, time period, and creating user. A dedicated `timetable_locks` table provides a singleton row for serialization of participating timetable writes. Scheduling operations use a database transaction and a shared row lock to check conflicts and apply changes atomically. Related academic-calendar writes use a consistent lock ordering when both calendar and timetable records are involved.
+
+Successful timetable changes are recorded as `timetable.entry.created`, `timetable.entry.updated`, and `timetable.entry.deleted` audit events. Audits participate in the write transaction, so rolled-back changes do not leave successful-change audit events.
+
+**Concurrency testing and limits**
+
+On an isolated local **MySQL 8.0 / InnoDB** database, independent PHP workers verified shared-row lock contention, competing creations for the same schedule slot, overlapping teacher lessons across different classes, scheduling competing with teacher deactivation, and class creation competing with academic-year renumbering. In the observed runs, invalid simultaneous outcomes were rejected and the committed records and audit counts remained consistent. These targeted experiments supplement the automated SQLite suite; they do **not** prove all possible orderings or protect direct database writers that bypass the participating application transaction protocol. The temporary test scripts and local database credentials are not part of the repository.
+
 ### Attendance Management
 
 - Create subject-based attendance sessions linked to teaching assignments.
@@ -474,6 +506,7 @@ Audit events include:
 - Subject creation, updates, and archiving.
 - Academic class subject assignments and removals.
 - Teaching assignment creation, updates, and deletion.
+- Timetable entry creation, updates, and deletion (`timetable.entry.created`, `timetable.entry.updated`, and `timetable.entry.deleted`).
 - Student CSV import processing.
 - Student CSV export requests.
 - Student CSV template downloads.
@@ -588,6 +621,10 @@ Administrators can:
 | Create teaching assignments | Yes | Yes |
 | Update teaching assignments | Yes | Yes |
 | Remove teaching assignments | Yes | No |
+| View timetable entries and class/teacher weekly timetables | Yes | Yes |
+| Create timetable entries | Yes | No |
+| Update timetable entries | Yes | No |
+| Delete timetable entries | Yes | No |
 | View attendance sessions | Yes | Yes |
 | Create attendance sessions | Yes | Yes |
 | View student attendance records | Yes | Yes |
@@ -904,7 +941,7 @@ The academic-report test suite covers authentication, archived-student authoriza
 php -d memory_limit=512M artisan test
 ```
 
-The setting applies only to that PHP invocation and is **not** an established production memory requirement. On **November 28, 2026**, the complete local test suite passed with **684 tests and 2,542 assertions** using `php -d memory_limit=512M artisan test`. Laravel Pint also passed across **205 files**; `composer validate`, `composer check-platform-reqs`, and Blade template compilation passed. These are local verification results from the Student Promotion feature branch, not a claim that the changes have already merged into `main`. Review resource consumption with representative dataset sizes before production deployment.
+The setting applies only to that PHP invocation and is **not** an established production memory requirement. On **November 28, 2026**, the full local regression suite for the Academic Timetable and Scheduling feature branch passed **756 tests and 2,742 assertions** with `php -d memory_limit=512M artisan test`. Laravel Pint passed on **225 files**; `git diff --check`, `composer validate`, `composer check-platform-reqs`, and the Vite production build also passed. The nine timetable routes were registered. These are local results from `feature/academic-timetable-scheduling`, not a claim that this feature has merged into `main`. An optional frontend optimization notice did not prevent the build. Review resource consumption with representative dataset sizes before production deployment.
 
 Run the application settings and localization tests:
 
@@ -935,6 +972,25 @@ php artisan test tests/Feature/AcademicYearServiceTest.php
 ```
 
 The academic-calendar tests cover dates and overlaps, database constraints, permissions, navigation, settings compatibility, audit integrity, and transactional rollback. Separate local MySQL checks have also exercised selected academic-calendar and student-promotion concurrency scenarios with independent processes. These are targeted tests rather than exhaustive proof of behavior under all concurrent workloads; the temporary student-promotion test harness is not part of the application.
+
+Run the academic timetable and scheduling feature tests:
+
+```bash
+php artisan test tests/Feature/TimetableEntryDatabaseTest.php
+php artisan test tests/Feature/TimetableCreationHttpTest.php
+php artisan test tests/Feature/TimetableDirectoryTest.php
+php artisan test tests/Feature/TimetableManagementHttpTest.php
+php artisan test tests/Feature/TimetableUpdateHttpTest.php
+php artisan test tests/Feature/TimetableWeeklyViewsTest.php
+php artisan test tests/Feature/TimetableNavigationTest.php
+php artisan test tests/Feature/TimetableSchedulingServiceTest.php
+php artisan test tests/Feature/TimetableAcademicYearIntegrityTest.php
+php artisan test tests/Feature/TimetableCalendarCoordinationTest.php
+```
+
+The timetable tests cover lesson validation, overlapping time slots, permissions, HTTP workflows, class and teacher weekly views, academic-year integrity, and related-record safeguards. The class weekly view also rejects a registered term from another academic year. Factory-generated timetable data must use an academic term and teaching assignment whose class years agree; the default factories may create them independently, so tests requiring a valid pairing should explicitly align those relationships.
+
+Independent-process MySQL concurrency probes were run locally against a dedicated database, separate from the SQLite unit and feature suite. Those temporary probes are not committed regression tests; repeatable MySQL integration coverage remains an area for future improvement.
 
 Run the grade calculator unit tests:
 
@@ -1032,7 +1088,7 @@ git switch -c feature/your-feature-name
 
 ## Project Roadmap
 
-The following are potential future development milestones. Academic Year and Term Management, Academic Class and Calendar Integration, and Student Promotion and Academic Progression have been implemented and tested locally. Student Promotion changes are being finalized on their feature branch and should not be treated as merged into `main` until the pull request is merged. See [the academic-calendar documentation](docs/academic-calendar.md).
+The following are potential future development milestones. Academic Year and Term Management, Academic Class and Calendar Integration, and Student Promotion and Academic Progression are documented as implemented features. Academic Timetable and Scheduling Management has also been implemented and locally verified on `feature/academic-timetable-scheduling`; its final commit, pull request, and merge are separate steps. Feature-branch verification does not imply that those changes are present on `main`. See [the academic-calendar documentation](docs/academic-calendar.md).
 
 ### Advanced Features
 
@@ -1042,7 +1098,8 @@ The following are potential future development milestones. Academic Year and Ter
 ### Further Quality Improvements
 
 - Performance testing and memory optimization for large PDF/XLSX exports.
-- Additional automated test coverage.
+- Additional automated test coverage, including repeatable cross-process MySQL timetable concurrency tests and both lock-acquisition orderings.
+- Make timetable test factories generate matching academic-term and class-year relationships by default.
 - Application security improvements.
 - Database backup and recovery.
 - Deployment preparation.
@@ -1066,7 +1123,8 @@ student-management-system/
 │       ├── AcademicCalendar/
 │       ├── Reports/
 │       ├── StudentEnrollments/
-│       └── StudentPromotions/
+│       ├── StudentPromotions/
+│       └── Timetables/
 ├── bootstrap/
 ├── config/
 ├── database/
@@ -1086,6 +1144,7 @@ student-management-system/
 │       │   └── exports/
 │       ├── notifications/
 │       ├── settings/
+│       ├── timetables/
 │       └── students/
 │           └── documents/
 ├── docs/
@@ -1123,6 +1182,8 @@ student-management-system/
 - Keep application credentials outside database-backed settings.
 - Preserve UTC timestamps and historical academic data when display preferences change.
 - Reject overlapping academic-year and term periods and use transactional calendar writes with audit logging.
+- Reject overlapping class and teacher lessons within an academic term, protect scheduled dependencies through participating write paths, and record timetable changes transactionally.
+- Validate class timetable term filters against the class academic year while allowing teacher schedules to span academic years.
 - Preserve the existing numeric academic-year fields when introducing new calendar records. Require registered years for newly created classes and year changes while allowing unchanged historical years during class edits.
 - Allow only active administrators to create promotions, while allowing authorized staff to view progression history.
 - Preserve attendance and examination results against the original enrollment after a promotion, and retain promotion-linked enrollment dates and statuses.
@@ -1137,15 +1198,17 @@ student-management-system/
 
 ## Project Status
 
-**Current status:** Student management, student CSV import and export, student document management, teacher management, academic year and term management, academic class management and calendar integration, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, student promotion and academic progression, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
+**Current status:** Academic timetable and scheduling management (locally verified on the feature branch), student management, student CSV import and export, student document management, teacher management, academic year and term management, academic class management and calendar integration, subject management, class-subject assignment, teacher-class-subject assignment, student enrollment management, student promotion and academic progression, attendance management, examination and grade management, academic reports **with PDF/XLSX downloads**, dashboard and statistics, audit logs and activity history, in-app notifications, authentication, role-based authorization, user management, account activation, user profile/account settings, advanced search and filtering, dashboard analytics, Notification Center enhancements, and application settings and configuration management have been implemented.
 
 Academic years and terms can be created and updated by active administrators and viewed by active staff. Calendar date validation prevents overlapping years and terms, and the calendar integrates with Application Settings without replacing existing numeric year identifiers. Calendar writes and audit events use shared database transactions. The academic-class/calendar integration offers registered-year selection for new and changed class-year assignments while retaining unchanged historical values and showing registered calendar details on class profiles. See [Academic Calendar Documentation](docs/academic-calendar.md).
 
-The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
+The application supports administrator-controlled teacher management, many-to-many relationships between academic classes and subjects, teacher assignments to class-subject combinations, weekly academic timetables with class/teacher overlap protection and read-only staff access, subject-based attendance recording, examination scheduling, student examination results, configurable grade calculation, a dashboard with academic and attendance summaries, and read-only academic reporting.
 
 Student records can be imported and exported using CSV files. The import functionality validates individual records, identifies duplicates, and reports row-level errors while allowing valid records to be imported. The export functionality supports active student records and current search criteria, with protection against spreadsheet formula injection.
 
 Student document management allows administrators and staff to upload, view, and download documents associated with student profiles according to their permissions. Supported formats include PDF, JPG, JPEG, and PNG, with a maximum upload size of 5 MB. Documents are stored using generated filenames in private storage. Document downloads enforce authentication and student ownership checks, while document deletion is restricted to administrators.
+
+The timetable module provides term-specific weekly schedules for classes and teachers, with administrator-only scheduling changes and staff read access. It rejects conflicting class or teacher lessons, protects related records against incompatible edits, and audits committed timetable changes. Targeted independent-process MySQL checks have verified selected concurrency scenarios, without claiming exhaustive concurrency safety.
 
 The dashboard displays summary cards, enrollment and attendance status totals, upcoming examinations, and recent student, enrollment, and attendance records. Archived student and teacher counts are visible to administrators only.
 
@@ -1153,7 +1216,7 @@ Academic reports include student enrollment, attendance, and examination history
 
 Attendance sessions and examinations are linked to teaching assignments, while individual attendance records and examination results are linked to student enrollments. Promotions complete an original enrollment and create a separate Active destination enrollment, without moving historical attendance or examination results. The promotion history table connects source and destination enrollments and records the progression type, date, administrator, and related audit event. Historical academic records are protected through database relationships and deletion restrictions.
 
-The audit logging system records important authentication, user management, student, teacher, enrollment, promotion, attendance, examination, academic class, academic year and term, CSV, document, and PDF/XLSX academic report export activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
+The audit logging system records important authentication, user management, student, teacher, enrollment, promotion, timetable, attendance, examination, academic class, academic year and term, CSV, document, and PDF/XLSX academic report export activities. Administrators can search and filter audit records and view individual activity details. Staff users cannot access the audit log interface.
 
 Audit records are designed to exclude sensitive credentials and unnecessary personal information. Changes to student and teacher records are tracked through changed field names, while document audit entries avoid storing file paths, original filenames, descriptions, and file contents. The application provides a read-only audit log interface.
 
@@ -1163,7 +1226,7 @@ Advanced search and filtering, dashboard analytics, and the enhanced Notificatio
 
 The application settings module provides administrator-controlled institution information, academic defaults, and localization preferences. Registered academic calendar years appear as suggestions while the saved setting remains numeric. Settings updates are validated, cached, and audited. Configured branding is reflected in the authenticated navigation, a configured academic year is preselected in new class forms only when registered, and notification timestamps use the selected display preferences.
 
-Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic-report export security and completeness, student-promotion rules, historical-record preservation, and integration regression coverage. The most recent verified full local run on **November 28, 2026** passed **684 tests (2,542 assertions)** with a temporary 512 MB PHP CLI memory allowance; Laravel Pint passed **205 files**. Composer validation, platform checks, and Blade template compilation also passed. Separate local MySQL concurrency experiments exercised competing promotions and a promotion competing with a manual enrollment writer on an isolated InnoDB database; both yielded consistent enrollment, promotion, and audit counts in the observed runs. These results describe local verification on the Student Promotion feature branch; complete browser smoke testing and the final merge remain separate steps.
+Automated testing and GitHub Actions support the development workflow. The test suite includes settings initialization, authorization, validation, caching, audit rollback, middleware configuration, localization, academic-report export security and completeness, student-promotion rules, historical-record preservation, and integration regression coverage. The most recent reported full local run on **November 28, 2026** passed **756 tests (2,742 assertions)** with a temporary 512 MB PHP CLI memory allowance; Laravel Pint passed **225 files**. Composer validation, platform checks, and the Vite production build passed. Separate local MySQL/InnoDB concurrency experiments exercised competing promotions as well as timetable lock contention, conflicting timetable creations, teacher deactivation against scheduling, and calendar renumbering against class creation; the observed outcomes preserved relevant records and audit counts. These results describe local verification of the Academic Timetable and Scheduling feature branch; independent browser smoke testing, full cross-process test automation, the final commit, and merge remain separate steps.
 
 ---
 

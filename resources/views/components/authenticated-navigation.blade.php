@@ -97,6 +97,17 @@
             </a>
         @endcan
 
+        @can('viewAny', \App\Models\TimetableEntry::class)
+            <a
+                href="{{ route('timetables.index') }}"
+                @if (request()->routeIs('timetables.*'))
+                    aria-current="page"
+                @endif
+            >
+                Timetables
+            </a>
+        @endcan
+
         @can('viewAny', \App\Models\ApplicationSetting::class)
             <a
                 href="{{ route('settings.edit') }}"
